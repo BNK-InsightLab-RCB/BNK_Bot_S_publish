@@ -720,15 +720,26 @@ function AdminProviderBoards({ dashboard }: { dashboard: AdminDashboard | null }
   const totals = dashboard?.totals;
   const routeCounts = dashboard?.route_counts ?? [];
   const retrievalCounts = dashboard?.retrieval_counts ?? [];
-  const azureUsage = {
+  const azureOps = {
     model: azure?.foundry_model || "gpt-5.4",
     usedTokens: 128_420,
-    remainingTokens: 871_580,
     tokenLimit: 1_000_000,
     requestCount: totals?.cloud_answer_count ?? 14,
     latencyP95: 820,
+    modelLoad: 34,
+    searchLoad: 46,
+    queueDepth: 2,
   };
-  const usedPercent = Math.round((azureUsage.usedTokens / azureUsage.tokenLimit) * 100);
+  const localOps = {
+    cpuLoad: 37,
+    memoryLoad: 58,
+    qwenLoad: local?.llm_chat_enabled ? 44 : 18,
+    queueDepth: 1,
+    latencyP95: 410,
+    requestCount: totals?.local_answer_count ?? 3,
+  };
+  const usedPercent = Math.round((azureOps.usedTokens / azureOps.tokenLimit) * 100);
+  const azureLoadPercent = Math.round((azureOps.modelLoad + azureOps.searchLoad) / 2);
   return (
     <section className="provider-board-grid" aria-label="응답 경로 대시보드">
       <article className="panel provider-card is-azure">
@@ -775,44 +786,44 @@ function AdminProviderBoards({ dashboard }: { dashboard: AdminDashboard | null }
               <span key={item.label}>{item.label} {item.count}</span>
             ))}
         </div>
-        <div className="azure-ops-grid">
-          <div className="azure-demo-grid" aria-label="Azure 모델 사용량 데모">
+        <div className="provider-ops-grid">
+          <div className="provider-metric-grid" aria-label="Azure 모델 사용량 데모">
             <article>
               <span>모델 사용량</span>
               <strong>{usedPercent}%</strong>
-              <small>{azureUsage.usedTokens.toLocaleString()} / {azureUsage.tokenLimit.toLocaleString()} tokens</small>
+              <small>{azureOps.usedTokens.toLocaleString()} / {azureOps.tokenLimit.toLocaleString()} tokens</small>
               <div className="usage-meter" aria-hidden="true">
                 <span style={{ width: `${usedPercent}%` }} />
               </div>
             </article>
             <article>
-              <span>남은 토큰</span>
-              <strong>{azureUsage.remainingTokens.toLocaleString()}</strong>
-              <small>{azureUsage.model} · P95 {azureUsage.latencyP95}ms</small>
-              <div className="usage-meter is-remaining" aria-hidden="true">
-                <span style={{ width: `${100 - usedPercent}%` }} />
+              <span>현재 부하</span>
+              <strong>{azureLoadPercent}%</strong>
+              <small>model {azureOps.modelLoad}% · search {azureOps.searchLoad}% · queue {azureOps.queueDepth}</small>
+              <div className="usage-meter is-load" aria-hidden="true">
+                <span style={{ width: `${azureLoadPercent}%` }} />
               </div>
             </article>
           </div>
-          <div className="observability-demo" aria-label="Azure Observability API 데모">
+          <div className="observability-agent" aria-label="Azure Observability 대화형 에이전트 데모">
             <header>
               <div>
-                <span className="eyebrow">Observability API</span>
-                <strong>대화 · 참조 · 토큰 추적</strong>
-                <small>{azureUsage.requestCount} demo calls</small>
+                <span className="eyebrow">Observability Agent</span>
+                <strong>대화로 원인 · 참조 · 부하 확인</strong>
+                <small>{azureOps.requestCount} demo calls · P95 {azureOps.latencyP95}ms</small>
               </div>
               <button type="button" disabled title="데모 UI입니다. 실제 Azure API 호출은 연결하지 않았습니다.">
-                API 연결 예정
+                Demo
               </button>
             </header>
-            <div className="api-route-list">
-              <code>GET /azure/model-usage</code>
-              <code>GET /azure/observability/conversations</code>
+            <div className="agent-chat-window">
+              <p className="is-system"><span>agent</span> Foundry 모델, AI Search, 토큰, 지연시간 로그를 함께 봅니다.</p>
+              <p><span>admin</span> 자동이체 오류 답변의 참조와 현재 부하를 보여줘.</p>
+              <p><span>agent</span> AI Search 부하 {azureOps.searchLoad}%, 모델 부하 {azureOps.modelLoad}%, 참조 6건입니다.</p>
             </div>
-            <div className="obs-chat-preview">
-              <p><span>user</span> 자동이체 등록 오류 원인 요약 요청</p>
-              <p><span>foundry</span> Search 근거 6건 참조 · 답변 생성</p>
-              <p><span>monitor</span> input 1.8k · output 940 · remaining {azureUsage.remainingTokens.toLocaleString()}</p>
+            <div className="agent-input-row" aria-disabled="true">
+              <input type="text" disabled placeholder="Observability 에이전트에게 질문하기" />
+              <button type="button" disabled>전송</button>
             </div>
           </div>
         </div>
@@ -856,6 +867,53 @@ function AdminProviderBoards({ dashboard }: { dashboard: AdminDashboard | null }
               <span key={item.label}>{item.label} {item.count}</span>
             ))}
           <span>Qwen chat {local?.llm_chat_enabled ? "on" : "fallback"}</span>
+        </div>
+        <div className="provider-ops-grid is-local-ops">
+          <div className="provider-metric-grid" aria-label="Local Qwen 백엔드 사용량 데모">
+            <article>
+              <span>백엔드 CPU</span>
+              <strong>{localOps.cpuLoad}%</strong>
+              <small>uvicorn worker 1 · queue {localOps.queueDepth}</small>
+              <div className="usage-meter" aria-hidden="true">
+                <span style={{ width: `${localOps.cpuLoad}%` }} />
+              </div>
+            </article>
+            <article>
+              <span>메모리 / Qwen</span>
+              <strong>{localOps.memoryLoad}%</strong>
+              <small>qwen load {localOps.qwenLoad}% · P95 {localOps.latencyP95}ms</small>
+              <div className="usage-meter is-local" aria-hidden="true">
+                <span style={{ width: `${localOps.memoryLoad}%` }} />
+              </div>
+            </article>
+          </div>
+          <div className="local-runtime-panel" aria-label="Local Qwen 런타임 상태 데모">
+            <header>
+              <div>
+                <span className="eyebrow">Backend Runtime</span>
+                <strong>서버 부하 · 인덱스 · 큐 상태</strong>
+                <small>{localOps.requestCount} local calls · demo metrics</small>
+              </div>
+            </header>
+            <dl>
+              <div>
+                <dt>Qwen 서버</dt>
+                <dd>{local?.llm_chat_enabled ? "online" : "fallback"}</dd>
+              </div>
+              <div>
+                <dt>검색 큐</dt>
+                <dd>{localOps.queueDepth} waiting</dd>
+              </div>
+              <div>
+                <dt>지식문서</dt>
+                <dd>{local?.local_index_count ?? 0} docs</dd>
+              </div>
+              <div>
+                <dt>런타임</dt>
+                <dd>FastAPI · Qwen local</dd>
+              </div>
+            </dl>
+          </div>
         </div>
       </article>
     </section>

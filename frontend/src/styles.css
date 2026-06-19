@@ -968,40 +968,41 @@ button:disabled {
   font-weight: 700;
 }
 
-.azure-ops-grid {
+.provider-ops-grid {
   display: grid;
   grid-template-columns: minmax(230px, 0.72fr) minmax(360px, 1.28fr);
   gap: 8px;
   align-items: stretch;
 }
 
-.azure-demo-grid {
+.provider-metric-grid {
   display: grid;
   gap: 8px;
 }
 
-.azure-demo-grid article,
-.observability-demo {
+.provider-metric-grid article,
+.observability-agent,
+.local-runtime-panel {
   min-width: 0;
   border: 1px solid rgba(0, 102, 204, 0.16);
   border-radius: 8px;
   background: linear-gradient(180deg, rgba(245, 250, 255, 0.92), rgba(255, 255, 255, 0.76));
 }
 
-.azure-demo-grid article {
+.provider-metric-grid article {
   display: grid;
   gap: 5px;
   padding: 9px 10px;
 }
 
-.azure-demo-grid span,
-.azure-demo-grid small {
+.provider-metric-grid span,
+.provider-metric-grid small {
   color: var(--text-muted);
   font-size: 12px;
   font-weight: 760;
 }
 
-.azure-demo-grid strong {
+.provider-metric-grid strong {
   color: var(--blue);
   font-size: 21px;
   line-height: 1;
@@ -1021,31 +1022,45 @@ button:disabled {
   background: var(--blue);
 }
 
-.usage-meter.is-remaining span {
+.usage-meter.is-load span {
+  background: #7a5a00;
+}
+
+.usage-meter.is-local span {
   background: #1c7c54;
 }
 
-.observability-demo {
+.observability-agent,
+.local-runtime-panel {
   display: grid;
   gap: 8px;
   padding: 10px;
 }
 
-.observability-demo header {
+.observability-agent header,
+.local-runtime-panel header {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 10px;
 }
 
-.observability-demo header strong {
+.observability-agent header > div,
+.local-runtime-panel header > div {
+  min-width: 0;
+  display: block;
+}
+
+.observability-agent header strong,
+.local-runtime-panel header strong {
   display: block;
   margin-top: 3px;
   color: var(--text);
   font-size: 14px;
 }
 
-.observability-demo header small {
+.observability-agent header small,
+.local-runtime-panel header small {
   display: block;
   margin-top: 2px;
   color: var(--text-muted);
@@ -1053,7 +1068,7 @@ button:disabled {
   font-weight: 760;
 }
 
-.observability-demo button {
+.observability-agent button {
   min-height: 32px;
   padding: 0 10px;
   border-radius: 8px;
@@ -1063,32 +1078,16 @@ button:disabled {
   font-weight: 760;
 }
 
-.api-route-list {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-}
-
-.api-route-list code {
-  min-width: 0;
-  flex: 1 1 210px;
-  overflow: hidden;
-  border: 1px solid var(--stroke-soft);
-  border-radius: 7px;
-  padding: 7px 8px;
-  color: #0d4f94;
-  background: rgba(255, 255, 255, 0.8);
-  font-size: 12px;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.obs-chat-preview {
+.agent-chat-window {
   display: grid;
   gap: 5px;
+  border: 1px solid var(--stroke-soft);
+  border-radius: 8px;
+  padding: 8px;
+  background: rgba(255, 255, 255, 0.76);
 }
 
-.obs-chat-preview p {
+.agent-chat-window p {
   display: grid;
   grid-template-columns: 70px minmax(0, 1fr);
   gap: 8px;
@@ -1098,9 +1097,66 @@ button:disabled {
   line-height: 1.45;
 }
 
-.obs-chat-preview span {
+.agent-chat-window .is-system {
+  color: var(--text-muted);
+}
+
+.agent-chat-window span {
   color: var(--blue);
   font-weight: 760;
+}
+
+.agent-input-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 6px;
+}
+
+.agent-input-row input {
+  min-width: 0;
+  min-height: 34px;
+  border: 1px solid var(--stroke-soft);
+  border-radius: 8px;
+  padding: 0 10px;
+  color: var(--text-muted);
+  background: rgba(255, 255, 255, 0.78);
+}
+
+.agent-input-row button {
+  min-width: 58px;
+}
+
+.local-runtime-panel dl {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+  margin: 0;
+}
+
+.local-runtime-panel dl div {
+  min-width: 0;
+  border: 1px solid var(--stroke-soft);
+  border-radius: 7px;
+  padding: 7px 8px;
+  background: rgba(255, 255, 255, 0.72);
+}
+
+.local-runtime-panel dt,
+.local-runtime-panel dd {
+  margin: 0;
+}
+
+.local-runtime-panel dt {
+  color: var(--text-muted);
+  font-size: 11px;
+  font-weight: 760;
+}
+
+.local-runtime-panel dd {
+  margin-top: 3px;
+  color: var(--text);
+  font-size: 12px;
+  overflow-wrap: anywhere;
 }
 
 .kpi-list article {
@@ -2028,8 +2084,10 @@ button:disabled {
   .admin-placeholder dl,
   .admin-panel,
   .admin-panel .upload-event-list,
-  .azure-ops-grid,
-  .azure-demo-grid,
+  .provider-ops-grid,
+  .provider-metric-grid,
+  .agent-input-row,
+  .local-runtime-panel dl,
   .admin-row {
     grid-template-columns: 1fr;
   }
