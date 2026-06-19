@@ -5,6 +5,8 @@ interface AnswerViewProps {
   response: ChatResponse | null;
   loading: boolean;
   question: string;
+  hideEvidenceSections?: boolean;
+  hideTechnicalSummary?: boolean;
 }
 
 const sectionIcons: Record<string, JSX.Element> = {
@@ -14,7 +16,15 @@ const sectionIcons: Record<string, JSX.Element> = {
   "[IT부서 전달용 정보]": <Wrench size={18} aria-hidden="true" />,
 };
 
-export function AnswerView({ response, loading, question }: AnswerViewProps) {
+const hiddenEvidenceTitles = new Set(["근거", "답변 근거", "답변근거", "출처", "sources"]);
+
+export function AnswerView({
+  response,
+  loading,
+  question,
+  hideEvidenceSections = false,
+  hideTechnicalSummary = false,
+}: AnswerViewProps) {
   if (!response && !loading && !question) {
     return (
       <section className="answer-view answer-empty">
@@ -31,7 +41,11 @@ export function AnswerView({ response, loading, question }: AnswerViewProps) {
     );
   }
 
-  const sections = response ? splitSections(response.answer) : [];
+  const sections = response
+    ? splitSections(response.answer).filter(
+        (section) => !hideEvidenceSections || !hiddenEvidenceTitles.has(normalizeSectionTitle(section.title)),
+      )
+    : [];
 
   return (
     <section className="answer-view">
@@ -61,14 +75,14 @@ export function AnswerView({ response, loading, question }: AnswerViewProps) {
                     {sectionIcons[section.title] ?? null}
                     <span>{section.title.replace("[", "").replace("]", "")}</span>
                   </h3>
-                  <p>{section.body}</p>
+                  <AnswerBody text={section.body} />
                 </article>
               ))}
             </div>
           )}
         </div>
       </div>
-      {response && Object.keys(response.it_summary).length > 0 && (
+      {!hideTechnicalSummary && response && Object.keys(response.it_summary).length > 0 && (
         <div className="it-summary">
           <h3>IT 요약</h3>
           <dl>
@@ -81,7 +95,7 @@ export function AnswerView({ response, loading, question }: AnswerViewProps) {
           </dl>
         </div>
       )}
-      {response?.metadata && (
+      {!hideTechnicalSummary && response?.metadata && (
         <div className="response-meta">
           <span>{String(response.metadata.rag_provider ?? "local")}</span>
           <span>{String(response.metadata.answer_backend ?? "local")}</span>
@@ -99,5 +113,58 @@ function splitSections(answer: string) {
       title: firstLine,
       body: chunk.replace(firstLine, "").trim(),
     };
+  });
+}
+
+function AnswerBody({ text }: { text: string }) {
+  const lines = text.split("\n").map((line) => line.trimEnd());
+  const blocks: JSX.Element[] = [];
+  let listItems: JSX.Element[] = [];
+
+  function flushList() {
+    if (listItems.length === 0) return;
+    blocks.push(<ul key={`list-${blocks.length}`}>{listItems}</ul>);
+    listItems = [];
+  }
+
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (!trimmed) {
+      flushList();
+      continue;
+    }
+    const bullet = trimmed.match(/^[-•]\s+(.+)$/);
+    if (bullet) {
+      listItems.push(<li key={`item-${blocks.length}-${listItems.length}`}>{renderInline(bullet[1])}</li>);
+      continue;
+    }
+    flushList();
+    const numbered = trimmed.match(/^(\d+\.)\s+(.+)$/);
+    if (numbered) {
+      blocks.push(
+        <p key={`p-${blocks.length}`} className="answer-step">
+          <span>{numbered[1]}</span>
+          <span>{renderInline(numbered[2])}</span>
+        </p>,
+      );
+      continue;
+    }
+    blocks.push(<p key={`p-${blocks.length}`}>{renderInline(trimmed)}</p>);
+  }
+  flushList();
+  return <div className="answer-body">{blocks}</div>;
+}
+
+function normalizeSectionTitle(title: string) {
+  return title.replace(/^\[/, "").replace(/\]$/, "").trim().toLowerCase();
+}
+
+function renderInline(text: string) {
+  const parts = text.split(/(`[^`]+`)/g);
+  return parts.map((part, index) => {
+    if (part.startsWith("`") && part.endsWith("`")) {
+      return <code key={`${part}-${index}`}>{part.slice(1, -1)}</code>;
+    }
+    return <span key={`${part}-${index}`}>{part}</span>;
   });
 }

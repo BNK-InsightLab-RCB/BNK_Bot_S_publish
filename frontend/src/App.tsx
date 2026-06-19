@@ -499,7 +499,13 @@ function BranchWorkspace({
           samples={branchSamples}
         />
         {(response || loading || activeQuestion) && (
-          <AnswerView response={response} loading={loading} question={activeQuestion} />
+          <AnswerView
+            response={response}
+            loading={loading}
+            question={activeQuestion}
+            hideEvidenceSections
+            hideTechnicalSummary
+          />
         )}
       </section>
       <aside className="ops-rail right-rail">
@@ -563,7 +569,13 @@ function ITWorkspace({
           samples={itSamples}
         />
         {(response || loading || activeQuestion) && (
-          <AnswerView response={response} loading={loading} question={activeQuestion} />
+          <AnswerView
+            response={response}
+            loading={loading}
+            question={activeQuestion}
+            hideEvidenceSections
+            hideTechnicalSummary
+          />
         )}
       </section>
     </div>
@@ -984,13 +996,7 @@ function EvidenceList({ sources }: { sources: SourceCitation[] }) {
 function mergeEvidenceSources(sources: SourceCitation[]) {
   const grouped = new Map<string, SourceCitation>();
   for (const source of sources) {
-    const key = [
-      source.source_path || "",
-      source.api_path || "",
-      source.title || "",
-      source.business_name || "",
-      source.screen_id || "",
-    ].join("|");
+    const key = evidenceGroupKey(source);
     const existing = grouped.get(key);
     if (!existing) {
       grouped.set(key, {
@@ -1005,6 +1011,8 @@ function mergeEvidenceSources(sources: SourceCitation[]) {
       });
       continue;
     }
+    existing.reason = joinUnique([existing.reason, source.reason]).join(" / ");
+    existing.api_description = existing.api_description || source.api_description;
     existing.error_codes = joinUnique([...(existing.error_codes ?? []), ...(source.error_codes ?? [])]);
     existing.exception_types = joinUnique([
       ...(existing.exception_types ?? []),
@@ -1020,6 +1028,29 @@ function mergeEvidenceSources(sources: SourceCitation[]) {
     existing.tables = joinUnique([...(existing.tables ?? []), ...(source.tables ?? [])]);
   }
   return Array.from(grouped.values());
+}
+
+function evidenceGroupKey(source: SourceCitation) {
+  if (source.source_path || source.api_path || source.sql_id) {
+    return [
+      "technical",
+      source.source_path || "",
+      source.api_path || "",
+      source.sql_id || "",
+      source.title || "",
+    ].join("|");
+  }
+  const title = source.title || "";
+  const isBusinessRule = title.includes("업무 규칙") || !source.source_path;
+  if (isBusinessRule) {
+    return [
+      "business-rule",
+      title,
+      source.screen_name || source.screen_id || "",
+      source.retrieval_backend || "",
+    ].join("|");
+  }
+  return ["summary", title, source.business_name || "", source.screen_id || ""].join("|");
 }
 
 function evidenceSummary(source: SourceCitation) {
