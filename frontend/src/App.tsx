@@ -682,7 +682,7 @@ function AdminWorkspace({
         <AdminProviderBoards dashboard={dashboard} />
         <div className="admin-content-grid">
           <div className="admin-stack">
-            <AdminKpiPanel dashboard={dashboard} />
+            <AdminEvaluationPanel />
             <AdminModelEventsPanel dashboard={dashboard} />
           </div>
           <div className="admin-stack">
@@ -933,26 +933,81 @@ function AdminProviderBoards({ dashboard }: { dashboard: AdminDashboard | null }
   );
 }
 
-function AdminKpiPanel({ dashboard }: { dashboard: AdminDashboard | null }) {
+function AdminEvaluationPanel() {
+  const evaluationSummary = [
+    { label: "Groundedness", value: 88, note: "검색 근거와 답변 일치" },
+    { label: "Task Adherence", value: 91, note: "지침서 준수" },
+    { label: "Tool Success", value: 97, note: "AI Search 호출 성공" },
+  ];
+  const evaluatorGroups = [
+    {
+      name: "답변 품질",
+      items: ["Groundedness", "Fluency", "Coherence", "Relevance", "IntentResolution"],
+      score: 89,
+    },
+    {
+      name: "도구 활용",
+      items: ["ToolSelection", "ToolOutputUtilization", "ToolInputAccuracy", "ToolCallAccuracy"],
+      score: 92,
+    },
+    {
+      name: "업무 완결",
+      items: ["TaskCompletion", "TaskAdherence", "CustomerSatisfaction"],
+      score: 86,
+    },
+    {
+      name: "안전성",
+      items: ["Violence", "SelfHarm", "IndirectAttack", "ProtectedMaterial", "CodeVulnerability"],
+      score: 99,
+    },
+  ];
   return (
-    <section className="panel admin-kpi-panel">
+    <section className="panel evaluation-panel">
       <div className="panel-title">
         <BarChart3 size={19} aria-hidden="true" />
-        <h2>KPI 검증</h2>
+        <h2>Foundry 평가 보드</h2>
       </div>
-      <div className="kpi-list">
-        {(dashboard?.kpis ?? []).map((kpi) => (
-          <article key={kpi.name}>
-            <div>
-              <strong>{kpi.value}</strong>
-              <span>{kpi.name}</span>
+      <div className="evaluation-run-card">
+        <div>
+          <span className="eyebrow">Evaluation group</span>
+          <strong>eval-65o0x3cb</strong>
+          <small>test-agent: 3 · dataset test_agent_9q8qbq50hq</small>
+        </div>
+        <span className="run-status">In progress</span>
+      </div>
+      <div className="evaluation-score-grid">
+        {evaluationSummary.map((item) => (
+          <article key={item.label}>
+            <span>{item.label}</span>
+            <strong>{item.value}</strong>
+            <small>{item.note}</small>
+            <div className="usage-meter" aria-hidden="true">
+              <span style={{ width: `${item.value}%` }} />
             </div>
-            <p>{kpi.description}</p>
-            <small>
-              목표 {kpi.target} · 검증 {kpi.verification}
-            </small>
           </article>
         ))}
+      </div>
+      <div className="evaluator-group-list">
+        {evaluatorGroups.map((group) => (
+          <article key={group.name}>
+            <header>
+              <strong>{group.name}</strong>
+              <span>{group.score}</span>
+            </header>
+            <div>
+              {group.items.map((item) => (
+                <small key={item}>{item}</small>
+              ))}
+            </div>
+          </article>
+        ))}
+      </div>
+      <div className="evaluation-insight-card">
+        <Activity size={18} aria-hidden="true" />
+        <p>
+          실패 테스트는 Groundedness, ToolOutputUtilization, ToolCallAccuracy를 먼저 보고
+          AI Search 근거 누락인지, 도구 호출은 됐지만 답변에 반영되지 않은 문제인지 나눠 확인합니다.
+        </p>
       </div>
     </section>
   );

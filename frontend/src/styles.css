@@ -871,7 +871,7 @@ button:disabled {
   font-size: 12px;
 }
 
-.admin-kpi-panel,
+.evaluation-panel,
 .model-events-panel {
   display: grid;
   gap: 12px;
@@ -1172,6 +1172,147 @@ button:disabled {
   color: var(--text);
   font-size: 12px;
   overflow-wrap: anywhere;
+}
+
+.evaluation-run-card {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  border: 1px solid var(--stroke-soft);
+  border-radius: 8px;
+  padding: 12px;
+  background: linear-gradient(180deg, rgba(245, 250, 255, 0.94), rgba(255, 255, 255, 0.82));
+}
+
+.evaluation-run-card div {
+  min-width: 0;
+}
+
+.evaluation-run-card strong {
+  display: block;
+  margin-top: 4px;
+  color: var(--text);
+  font-size: 18px;
+  line-height: 1.2;
+}
+
+.evaluation-run-card small {
+  display: block;
+  margin-top: 5px;
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 760;
+  overflow-wrap: anywhere;
+}
+
+.run-status {
+  flex: 0 0 auto;
+  border: 1px solid rgba(0, 102, 204, 0.2);
+  border-radius: 999px;
+  padding: 5px 9px;
+  color: var(--blue);
+  background: var(--blue-soft);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.evaluation-score-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.evaluation-score-grid article,
+.evaluator-group-list article {
+  min-width: 0;
+  border: 1px solid var(--stroke-soft);
+  border-radius: 8px;
+  background: var(--surface-subtle);
+}
+
+.evaluation-score-grid article {
+  display: grid;
+  gap: 6px;
+  padding: 10px;
+}
+
+.evaluation-score-grid span,
+.evaluation-score-grid small {
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 760;
+}
+
+.evaluation-score-grid strong {
+  color: var(--blue);
+  font-size: 25px;
+  line-height: 1;
+}
+
+.evaluator-group-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.evaluator-group-list article {
+  display: grid;
+  gap: 8px;
+  padding: 10px;
+}
+
+.evaluator-group-list header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.evaluator-group-list strong {
+  color: var(--text);
+  font-size: 14px;
+}
+
+.evaluator-group-list header span {
+  color: var(--blue);
+  font-size: 18px;
+  font-weight: 850;
+}
+
+.evaluator-group-list article > div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.evaluator-group-list small {
+  border: 1px solid var(--stroke-soft);
+  border-radius: 6px;
+  padding: 4px 6px;
+  color: var(--text-muted);
+  background: rgba(255, 255, 255, 0.72);
+  font-size: 11px;
+  font-weight: 760;
+}
+
+.evaluation-insight-card {
+  display: grid;
+  grid-template-columns: 24px minmax(0, 1fr);
+  gap: 9px;
+  align-items: start;
+  border: 1px solid rgba(0, 102, 204, 0.18);
+  border-radius: 8px;
+  padding: 10px 12px;
+  color: #214f7a;
+  background: rgba(238, 247, 255, 0.78);
+}
+
+.evaluation-insight-card p {
+  margin: 0;
+  color: #303036;
+  font-size: 13px;
+  line-height: 1.5;
 }
 
 .kpi-list article {
@@ -2101,6 +2242,8 @@ button:disabled {
   .admin-panel .upload-event-list,
   .provider-ops-grid,
   .provider-metric-grid,
+  .evaluation-score-grid,
+  .evaluator-group-list,
   .agent-input-row,
   .local-runtime-panel dl,
   .admin-row {
