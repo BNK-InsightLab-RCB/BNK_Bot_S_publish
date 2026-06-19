@@ -739,12 +739,9 @@ button:disabled {
   align-items: start;
 }
 
-.provider-board-grid {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-}
-
+.provider-board-grid,
 .admin-content-grid {
-  grid-template-columns: minmax(460px, 0.96fr) minmax(520px, 1.04fr);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 .admin-stack {
