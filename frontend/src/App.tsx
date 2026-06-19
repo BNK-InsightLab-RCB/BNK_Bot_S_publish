@@ -45,6 +45,7 @@ import {
 import { AdminPanel } from "./components/AdminPanel";
 import { AnswerView } from "./components/AnswerView";
 import { ChatPanel } from "./components/ChatPanel";
+import { ChatDogeAvatar } from "./components/ChatDogeAvatar";
 import "./styles.css";
 
 const roleOptions: Array<{ code: RoleCode; role: UserRole; label: string }> = [
@@ -360,8 +361,14 @@ function LoginView({
     <main className="login-shell">
       <section className="login-panel auth-panel">
         <div className="auth-copy">
-          <span className="eyebrow">Source-Aware Ops RAG</span>
-          <h1>영업점 운영지원 로그인</h1>
+          <div className="auth-brand">
+            <ChatDogeAvatar />
+            <div>
+              <span className="eyebrow">Source-Aware Ops RAG</span>
+              <h1>챗도지</h1>
+            </div>
+          </div>
+          <p>{mode === "signup" ? "챗도지 계정 만들기" : "영업점 운영지원 로그인"}</p>
         </div>
         <div className="auth-tabs" role="tablist" aria-label="인증 방식">
           <button
@@ -389,6 +396,7 @@ function LoginView({
                 <Users size={17} aria-hidden="true" />
                 <input
                   required
+                  placeholder="실명 입력"
                   value={realName}
                   onChange={(event) => setRealName(event.target.value)}
                 />
@@ -401,6 +409,7 @@ function LoginView({
               <IdCard size={17} aria-hidden="true" />
               <input
                 required
+                placeholder="행번 입력"
                 value={employeeId}
                 onChange={(event) => setEmployeeId(event.target.value)}
               />
@@ -414,6 +423,7 @@ function LoginView({
                 required
                 minLength={mode === "signup" ? 4 : 1}
                 type="password"
+                placeholder="비밀번호 입력"
                 value={password}
                 onChange={(event) => setPassword(event.target.value)}
               />
