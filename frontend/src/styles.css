@@ -1592,6 +1592,7 @@ button:disabled {
 
 .branch-layout {
   grid-template-columns: minmax(260px, 0.56fr) minmax(620px, 1.26fr) minmax(300px, 0.62fr);
+  align-items: stretch;
 }
 
 .it-layout {
@@ -1661,15 +1662,34 @@ button:disabled {
 }
 
 .branch-layout .sample-row button {
-  display: -webkit-box;
-  overflow: hidden;
-  min-height: 84px;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 3;
+  min-height: 124px;
+  display: block;
+  overflow: visible;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: keep-all;
 }
 
+.branch-layout .left-rail,
+.branch-layout .right-rail,
+.branch-layout .center-chat {
+  height: clamp(620px, calc(100vh - 170px), 820px);
+  min-height: 620px;
+}
+
+.branch-layout .left-rail,
+.branch-layout .right-rail {
+  align-content: stretch;
+}
+
+.branch-layout .left-rail .question-guide,
 .branch-layout .right-rail .mailbox {
-  min-height: 300px;
+  height: 100%;
+}
+
+.branch-layout .center-chat {
+  grid-template-rows: auto minmax(0, 1fr);
+  align-content: stretch;
 }
 
 .question-guide {
