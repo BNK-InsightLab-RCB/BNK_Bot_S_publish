@@ -531,6 +531,8 @@ function BranchWorkspace({
           title="영업점 업무 문의"
           description="화면명, 오류 문구, 처리 상황을 함께 남겨주세요."
           samples={branchSamples}
+          submitLabel={response || activeQuestion ? "다시 질문" : "전송"}
+          showSamples={!response && !loading && !activeQuestion}
         />
         {(response || loading || activeQuestion) && (
           <AnswerView
@@ -539,6 +541,7 @@ function BranchWorkspace({
             question={activeQuestion}
             hideEvidenceSections
             hideTechnicalSummary
+            hideInternalSections
           />
         )}
       </section>
@@ -600,6 +603,8 @@ function ITWorkspace({
           title="IT 개발자 분석 챗봇"
           description="파일, API, 서비스, SQL, 테이블 단서까지 함께 확인합니다."
           samples={itSamples}
+          submitLabel={response || activeQuestion ? "다시 분석" : "전송"}
+          showSamples={!response && !loading && !activeQuestion}
         />
         {(response || loading || activeQuestion) && (
           <AnswerView

@@ -10,6 +10,8 @@ interface ChatPanelProps {
   title: string;
   description: string;
   samples?: string[];
+  submitLabel?: string;
+  showSamples?: boolean;
 }
 
 const defaultSamples = [
@@ -25,13 +27,17 @@ export function ChatPanel({
   title,
   description,
   samples = defaultSamples,
+  submitLabel = "전송",
+  showSamples = true,
 }: ChatPanelProps) {
-  const [question, setQuestion] = useState(samples[0]);
+  const [question, setQuestion] = useState(samples[0] ?? "");
 
   async function submit(event: FormEvent) {
     event.preventDefault();
-    if (!question.trim() || loading) return;
-    await onAsk(question.trim(), userRole);
+    const nextQuestion = question.trim();
+    if (!nextQuestion || loading) return;
+    setQuestion("");
+    await onAsk(nextQuestion, userRole);
   }
 
   return (
@@ -55,18 +61,20 @@ export function ChatPanel({
           <span className="role-chip">{roleLabel(userRole)}</span>
           <button type="submit" disabled={loading || !question.trim()} title="질문 보내기">
             <Send size={18} aria-hidden="true" />
-            <span>{loading ? "답변 생성 중" : "전송"}</span>
+            <span>{loading ? "답변 생성 중" : submitLabel}</span>
           </button>
         </div>
       </form>
 
-      <div className="sample-row">
-        {samples.map((sample) => (
-          <button key={sample} type="button" onClick={() => setQuestion(sample)}>
-            {sample}
-          </button>
-        ))}
-      </div>
+      {showSamples && samples.length > 0 && (
+        <div className="sample-row">
+          {samples.map((sample) => (
+            <button key={sample} type="button" onClick={() => setQuestion(sample)}>
+              {sample}
+            </button>
+          ))}
+        </div>
+      )}
     </section>
   );
 }

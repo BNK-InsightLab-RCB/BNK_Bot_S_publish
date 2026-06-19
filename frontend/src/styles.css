@@ -1671,31 +1671,56 @@ button:disabled {
 }
 
 .branch-layout .route-panel {
-  min-height: 82px;
-  padding: 15px 17px;
+  min-height: 68px;
+  padding: 13px 16px;
 }
 
 .branch-layout .chat-panel {
-  padding: 22px;
+  padding: 18px;
 }
 
 .branch-layout .chat-panel-head {
-  margin-bottom: 18px;
+  margin-bottom: 12px;
+}
+
+.branch-layout .ask-form {
+  grid-template-columns: minmax(0, 1fr) 128px;
+  align-items: stretch;
+  gap: 10px;
 }
 
 .branch-layout .ask-form textarea {
-  min-height: 178px;
-  font-size: 17px;
-  line-height: 1.62;
+  min-height: 112px;
+  max-height: 154px;
+  font-size: 16px;
+  line-height: 1.56;
+}
+
+.branch-layout .form-row {
+  display: grid;
+  grid-template-rows: auto 1fr;
+  align-content: stretch;
+  gap: 8px;
+}
+
+.branch-layout .role-chip {
+  justify-content: center;
+}
+
+.branch-layout .form-row button {
+  width: 100%;
+  min-height: 48px;
 }
 
 .branch-layout .sample-row button {
-  min-height: 124px;
-  display: block;
-  overflow: visible;
+  min-height: 112px;
+  display: -webkit-box;
+  overflow: hidden;
   white-space: normal;
   overflow-wrap: anywhere;
   word-break: keep-all;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 5;
 }
 
 .branch-layout .left-rail,
@@ -1716,8 +1741,28 @@ button:disabled {
 }
 
 .branch-layout .center-chat {
-  grid-template-rows: auto minmax(0, 1fr);
+  grid-template-rows: auto auto minmax(0, 1fr);
   align-content: stretch;
+  overflow: hidden;
+  resize: vertical;
+}
+
+.branch-layout .center-chat > .answer-view {
+  min-height: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+
+.branch-layout .center-chat > .answer-view .user-message {
+  margin-bottom: 12px;
+}
+
+.branch-layout .center-chat > .answer-view .answer-section {
+  padding: 13px 15px;
+}
+
+.branch-layout .center-chat > .answer-view .answer-body {
+  gap: 7px;
 }
 
 .question-guide {

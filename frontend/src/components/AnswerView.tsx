@@ -8,6 +8,7 @@ interface AnswerViewProps {
   question: string;
   hideEvidenceSections?: boolean;
   hideTechnicalSummary?: boolean;
+  hideInternalSections?: boolean;
 }
 
 const sectionIcons: Record<string, JSX.Element> = {
@@ -18,6 +19,7 @@ const sectionIcons: Record<string, JSX.Element> = {
 };
 
 const hiddenEvidenceTitles = new Set(["근거", "답변 근거", "답변근거", "출처", "sources"]);
+const hiddenInternalTitles = new Set(["내부 처리 로직", "처리 로직", "internal logic"]);
 
 export function AnswerView({
   response,
@@ -25,6 +27,7 @@ export function AnswerView({
   question,
   hideEvidenceSections = false,
   hideTechnicalSummary = false,
+  hideInternalSections = false,
 }: AnswerViewProps) {
   if (!response && !loading && !question) {
     return (
@@ -41,9 +44,12 @@ export function AnswerView({
   }
 
   const sections = response
-    ? splitSections(response.answer).filter(
-        (section) => !hideEvidenceSections || !hiddenEvidenceTitles.has(normalizeSectionTitle(section.title)),
-      )
+    ? splitSections(response.answer).filter((section) => {
+        const normalizedTitle = normalizeSectionTitle(section.title);
+        if (hideEvidenceSections && hiddenEvidenceTitles.has(normalizedTitle)) return false;
+        if (hideInternalSections && hiddenInternalTitles.has(normalizedTitle)) return false;
+        return true;
+      })
     : [];
 
   return (
@@ -70,7 +76,7 @@ export function AnswerView({
                 <article key={section.title} className="answer-section">
                   <h3>
                     {sectionIcons[section.title] ?? null}
-                    <span>{section.title.replace("[", "").replace("]", "")}</span>
+                    <span>{displaySectionTitle(section.title)}</span>
                   </h3>
                   <AnswerBody text={section.body} />
                 </article>
@@ -153,7 +159,12 @@ function AnswerBody({ text }: { text: string }) {
 }
 
 function normalizeSectionTitle(title: string) {
-  return title.replace(/^\[/, "").replace(/\]$/, "").trim().toLowerCase();
+  return displaySectionTitle(title).trim().toLowerCase();
+}
+
+function displaySectionTitle(title: string) {
+  const bracketTitle = title.match(/^\[([^\]]+)\]/);
+  return bracketTitle ? bracketTitle[1] : title.trim();
 }
 
 function renderInline(text: string) {
