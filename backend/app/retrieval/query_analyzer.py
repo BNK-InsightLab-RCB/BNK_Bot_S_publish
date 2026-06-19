@@ -23,8 +23,25 @@ SCREEN_HINTS = [
     "자동이체 등록",
     "기업뱅킹 사용자 등록",
     "잔액증명서 발급",
+    "어음할인 확인",
+    "어음할인",
+    "어음 할인",
 ]
-ACTION_HINTS = ["저장", "조회", "승인", "수정", "취소", "등록", "발급", "변경", "해제", "연장", "환매", "송금"]
+ACTION_HINTS = [
+    "저장",
+    "조회",
+    "승인",
+    "수정",
+    "취소",
+    "등록",
+    "발급",
+    "변경",
+    "해제",
+    "연장",
+    "환매",
+    "송금",
+    "할인",
+]
 
 
 @dataclass
@@ -50,7 +67,7 @@ class QueryAnalyzer:
         detected_screen = screen_name or next((hint for hint in SCREEN_HINTS if hint in question), None)
         detected_action = next((hint for hint in ACTION_HINTS if hint in question), None)
         error_message = quoted[0] if quoted else _detect_error_message(question)
-        keywords = unique_keep_order(re.findall(r"[A-Za-z0-9_]+|[가-힣]{2,}", question))
+        keywords = _expand_keywords(question, re.findall(r"[A-Za-z0-9_]+|[가-힣]{2,}", question))
         return QueryIntent(
             query=question,
             screen_name=detected_screen,
@@ -71,4 +88,20 @@ def _detect_error_message(question: str) -> Optional[str]:
         return "해지"
     if "저장" in question and ("안" in question or "오류" in question):
         return "저장"
+    if "어음" in question and ("할인" in question or "안" in question):
+        return "어음 할인"
     return None
+
+
+def _expand_keywords(question: str, keywords: List[str]) -> List[str]:
+    expanded = list(keywords)
+    compact = re.sub(r"\s+", "", question)
+    if "어음" in question and "할인" in question:
+        expanded.extend(["어음할인", "어음 할인", "discount", "bill", "billDiscount"])
+    if "장표" in question or "템플릿" in question:
+        expanded.extend(["장표템플릿", "장표 템플릿", "template"])
+    if "수납" in question:
+        expanded.extend(["수납", "receipt"])
+    if "어음할인" in compact and "어음 할인" not in expanded:
+        expanded.append("어음 할인")
+    return unique_keep_order(expanded)

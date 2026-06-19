@@ -189,6 +189,41 @@ def test_supervisor_uses_foundry_agent_first(monkeypatch):
     assert any("agent-first route selected" in step for step in response["metadata"]["agent_trace"])
 
 
+def test_supervisor_sends_short_branch_question_to_foundry_agent(monkeypatch):
+    monkeypatch.setattr(
+        supervisor_module,
+        "settings",
+        SimpleNamespace(
+            rag_provider="multi_agent",
+            foundry_agent_name="test-agent",
+            foundry_ai_search_connection_id="",
+            azure_search_endpoint="https://search.example",
+            enable_llm_chat=False,
+        ),
+    )
+
+    class FakeFoundryClient:
+        def answer(self, question, user_role, context_hint="", agent_first=False):
+            assert question == "어음 할인이 안돼"
+            assert user_role == "branch"
+            assert agent_first is True
+            assert context_hint == ""
+            return FoundryResponse(
+                answer="[가능한 원인]\n어음 할인 업무 기준에 따라 확인할 항목이 있습니다.",
+                citations=[FoundryCitation(title="어음할인 확인", url="https://example.com/bill")],
+            )
+
+    response = SupervisorAgent(foundry_client=FakeFoundryClient()).handle(
+        "어음 할인이 안돼",
+        user_role="branch",
+    )
+
+    assert response["metadata"]["answer_backend"] == "foundry"
+    assert response["metadata"]["workflow"] == "foundry_agent_search_tool"
+    assert response["metadata"].get("blocked_by_scope") is None
+    assert "어음 할인" in response["answer"]
+
+
 def test_supervisor_routes_it_sql_generation_to_sql_agent(monkeypatch):
     monkeypatch.setattr(
         supervisor_module,

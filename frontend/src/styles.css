@@ -1619,7 +1619,7 @@ button:disabled {
 }
 
 .branch-layout {
-  grid-template-columns: minmax(260px, 0.56fr) minmax(620px, 1.26fr) minmax(300px, 0.62fr);
+  grid-template-columns: minmax(720px, 1.55fr) minmax(320px, 0.62fr);
   align-items: stretch;
 }
 

@@ -75,13 +75,9 @@ def is_forbidden_question(question: str, user_role: str = "branch") -> bool:
 
 
 def is_out_of_scope_question(question: str, user_role: str = "branch") -> bool:
-    """Return true when a branch question is unrelated to branch operations."""
-    if user_role != "branch":
-        return False
-    normalized = question.lower()
-    if any(term.lower() in normalized for term in BRANCH_SCOPE_TERMS):
-        return False
-    return True
+    """Scope blocking is disabled for the demo so every non-forbidden question reaches RAG."""
+    _ = (question, user_role)
+    return False
 
 
 def refusal_answer() -> str:
@@ -138,6 +134,12 @@ def sanitize_answer(answer: str, user_role: str) -> str:
         cleaned = re.sub(r"\bTB_[A-Z0-9_]+\b", "[내부 테이블]", cleaned)
         cleaned = re.sub(r"\b[A-Z][A-Za-z0-9_]+(?:Controller|Service|Mapper)\.[A-Za-z_]\w*", "[내부 처리 로직]", cleaned)
         cleaned = re.sub(r"\b[a-z][A-Za-z0-9_]*\.[A-Za-z_]\w*(?:\([^)]*\))?", "[내부 처리 로직]", cleaned)
+        cleaned = re.sub(
+            r"\b(?:get|set|fetch|find|select|insert|update|delete|execute|register|approve|create|save)\s+[A-Z][A-Za-z0-9_]*\b",
+            "업무 처리",
+            cleaned,
+        )
+        cleaned = re.sub(r"(?:업로드\s*)?JSON\s*근거", "업무 근거", cleaned, flags=re.IGNORECASE)
         cleaned = re.sub(r"\b[A-Za-z0-9_]+\.(?:vue|java|xml|ts|tsx|js|jsx)(?:\s*>\s*[A-Za-z_]\w*)?", "화면/업무 근거", cleaned)
         cleaned = re.sub(
             r"`?(?:[A-Za-z0-9_.-]+/)+(?:[A-Za-z0-9_.-]+)(?::\d+(?:-\d+)?)?`?",

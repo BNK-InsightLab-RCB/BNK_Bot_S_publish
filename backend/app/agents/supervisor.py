@@ -12,7 +12,7 @@ from backend.app.agents.sql_intent_classifier import SQLIntentClassifier
 from backend.app.foundry.agent_client import FoundryAgentClient
 from backend.app.parsers.base import KnowledgeDocument
 from backend.app.rag.answer_generator import AnswerGenerator
-from backend.app.rag.safety import is_forbidden_question, is_out_of_scope_question, out_of_scope_answer
+from backend.app.rag.safety import is_forbidden_question
 from backend.app.retrieval.context_builder import ContextBuilder
 from backend.app.retrieval.elastic_searcher import HybridSearcher
 from backend.app.retrieval.graph_store import GraphExpander
@@ -69,23 +69,6 @@ class SupervisorAgent:
                 "expanded_doc_count": 0,
                 "agent_trace": trace.steps,
                 "blocked_by_safety": True,
-            }
-            return response
-        if is_out_of_scope_question(question, user_role=user_role):
-            trace.add("safety_worker: blocked out-of-scope branch request before retrieval")
-            response = self.answer_generator.generate_from_external_answer(
-                answer=out_of_scope_answer(),
-                docs=[],
-                user_role=user_role,
-                confidence=0.1,
-            )
-            response["metadata"] = {
-                "rag_provider": provider,
-                "answer_backend": "scope_guard",
-                "local_ranked_count": 0,
-                "expanded_doc_count": 0,
-                "agent_trace": trace.steps,
-                "blocked_by_scope": True,
             }
             return response
         if provider in {"foundry", "multi_agent"} and user_role == "it" and _sql_agent_configured():

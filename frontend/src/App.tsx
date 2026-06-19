@@ -519,9 +519,6 @@ function BranchWorkspace({
   const selected = selectedTicket?.sender_employee_id === session.employee_id ? selectedTicket : myTickets[0] ?? null;
   return (
     <div className="workspace branch-layout">
-      <aside className="ops-rail left-rail">
-        <QuestionGuide />
-      </aside>
       <section className="chat-workspace center-chat">
         <RoutePanel route={route} />
         <ChatPanel
@@ -1033,58 +1030,6 @@ function AdminEvaluationPanel() {
           실패 테스트는 Groundedness, ToolOutputUtilization, ToolCallAccuracy를 먼저 보고
           AI Search 근거 누락인지, 도구 호출은 됐지만 답변에 반영되지 않은 문제인지 나눠 확인합니다.
         </p>
-      </div>
-    </section>
-  );
-}
-
-function QuestionGuide() {
-  const examples = [
-    {
-      label: "번호",
-      title: "화면번호 또는 대표 문구",
-      body: "화면번호를 모르면 화면 상단 제목이나 크게 보이는 문구",
-    },
-    {
-      label: "문구",
-      title: "오류 문구",
-      body: "화면에 나온 문장을 줄이지 말고 그대로",
-    },
-    {
-      label: "작업",
-      title: "수행 작업",
-      body: "조회, 등록, 승인, 발급 등 누른 버튼과 직전 단계",
-    },
-    {
-      label: "업무",
-      title: "업무명",
-      body: "자동이체 등록, 고객조회 저장, 전표승인처럼 업무 이름",
-    },
-    {
-      label: "입력",
-      title: "입력 상황",
-      body: "계좌는 뒤 4자리만, 납부자번호/전표번호는 필요한 범위만",
-    },
-  ];
-  return (
-    <section className="panel question-guide">
-      <div className="panel-title">
-        <Bot size={19} aria-hidden="true" />
-        <h2>질문 가이드</h2>
-      </div>
-      <div className="guide-list">
-        {examples.map((item) => (
-          <article key={item.label}>
-            <span>{item.label}</span>
-            <div>
-              <strong>{item.title}</strong>
-              <p>{item.body}</p>
-            </div>
-          </article>
-        ))}
-      </div>
-      <div className="guide-note">
-        주민번호, 전체 계좌번호, 비밀번호, 인증번호는 입력하지 마세요.
       </div>
     </section>
   );
