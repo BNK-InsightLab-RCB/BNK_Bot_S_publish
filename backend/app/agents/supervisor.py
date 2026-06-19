@@ -8,6 +8,7 @@ from typing import Dict, List, Optional, Tuple
 import httpx
 
 from backend.app.config import settings
+from backend.app.agents.sql_intent_classifier import SQLIntentClassifier
 from backend.app.foundry.agent_client import FoundryAgentClient
 from backend.app.parsers.base import KnowledgeDocument
 from backend.app.rag.answer_generator import AnswerGenerator
@@ -37,9 +38,11 @@ class SupervisorAgent:
         self,
         answer_generator: Optional[AnswerGenerator] = None,
         foundry_client: Optional[FoundryAgentClient] = None,
+        sql_intent_classifier: Optional[SQLIntentClassifier] = None,
     ) -> None:
         self.answer_generator = answer_generator or AnswerGenerator()
         self.foundry_client = foundry_client or FoundryAgentClient()
+        self.sql_intent_classifier = sql_intent_classifier or SQLIntentClassifier()
 
     def handle(
         self,
@@ -85,6 +88,32 @@ class SupervisorAgent:
                 "blocked_by_scope": True,
             }
             return response
+        if provider in {"foundry", "multi_agent"} and user_role == "it" and _sql_agent_configured():
+            decision = self.sql_intent_classifier.classify(question)
+            trace.add(f"qwen_sql_router: {decision.raw_answer} ({decision.source})")
+            if decision.is_sql_generation:
+                foundry_response = self._ask_foundry_sql_generator(question, user_role, trace)
+                if foundry_response:
+                    response = self.answer_generator.generate_from_external_answer(
+                        answer=foundry_response.answer,
+                        docs=[],
+                        user_role=user_role,
+                        confidence=0.84 if foundry_response.citations else 0.72,
+                    )
+                    response["sources"] = _sql_generator_sources(foundry_response, user_role)
+                    response["metadata"] = {
+                        "rag_provider": provider,
+                        "answer_backend": "foundry_sql_generator",
+                        "workflow": "foundry_sql_generator_agent",
+                        "agent_route": "sql_generator",
+                        "sql_router_decision": decision.raw_answer,
+                        "sql_router_source": decision.source,
+                        "local_ranked_count": 0,
+                        "expanded_doc_count": 0,
+                        "agent_trace": trace.steps,
+                    }
+                    return response
+                trace.add("sql_generator_worker: unavailable; falling back to RAG agent")
         if provider in {"foundry", "multi_agent"} and _foundry_tool_configured():
             trace.add("foundry_agent_worker: agent-first route selected")
             foundry_response = self._ask_foundry(
@@ -112,6 +141,7 @@ class SupervisorAgent:
                     "rag_provider": provider,
                     "answer_backend": "foundry",
                     "workflow": "foundry_agent_search_tool",
+                    "agent_route": "rag",
                     "local_ranked_count": 0,
                     "expanded_doc_count": 0,
                     "agent_trace": trace.steps,
@@ -147,6 +177,7 @@ class SupervisorAgent:
                 response["metadata"] = {
                     "rag_provider": provider,
                     "answer_backend": "foundry",
+                    "agent_route": "rag",
                     "local_ranked_count": ranked_count,
                     "expanded_doc_count": len(docs),
                     "agent_trace": trace.steps,
@@ -238,6 +269,31 @@ class SupervisorAgent:
         trace.add("foundry_worker: no usable answer returned")
         return None
 
+    def _ask_foundry_sql_generator(
+        self,
+        question: str,
+        user_role: str,
+        trace: AgentTrace,
+    ):
+        trace.add("sql_generator_worker: calling SQLGenerator-Agent")
+        foundry_response = self.foundry_client.answer(
+            question=question,
+            user_role=user_role,
+            context_hint="",
+            agent_first=True,
+            agent_name=settings.foundry_sql_agent_name,
+            agent_version=settings.foundry_sql_agent_version,
+            agent_mode="sql_generator",
+        )
+        if foundry_response and foundry_response.answer:
+            trace.add(
+                f"sql_generator_worker: completed with {len(foundry_response.citations)} citations"
+            )
+            trace.add("safety_worker: local role guardrail applied")
+            return foundry_response
+        trace.add("sql_generator_worker: no usable answer returned")
+        return None
+
 
 def _merge_sources(
     foundry_sources: List[Dict[str, object]],
@@ -255,7 +311,25 @@ def _merge_sources(
 
 
 def _foundry_tool_configured() -> bool:
-    return bool(settings.foundry_agent_name or settings.foundry_ai_search_connection_id)
+    return bool(
+        getattr(settings, "foundry_agent_name", "")
+        or getattr(settings, "foundry_ai_search_connection_id", "")
+    )
+
+
+def _sql_agent_configured() -> bool:
+    return bool(getattr(settings, "foundry_sql_agent_name", ""))
+
+
+def _sql_generator_sources(foundry_response, user_role: str) -> List[Dict[str, object]]:
+    sources = [
+        citation.to_source(index, user_role)
+        for index, citation in enumerate(foundry_response.citations)
+    ]
+    for source in sources:
+        source["retrieval_backend"] = "foundry_sql_generator"
+        source["reason"] = "Microsoft Foundry SQLGenerator-Agent citation"
+    return sources
 
 
 def _select_azure_hits(question: str, hits) -> List[object]:

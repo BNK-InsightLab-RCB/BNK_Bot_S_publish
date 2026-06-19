@@ -50,6 +50,8 @@ FOUNDRY_PROJECT_ENDPOINT=https://<foundry-resource>.services.ai.azure.com/api/pr
 FOUNDRY_MODEL_DEPLOYMENT=gpt-5.4
 FOUNDRY_AGENT_NAME=test-agent
 FOUNDRY_AGENT_VERSION=3
+FOUNDRY_SQL_AGENT_NAME=SQLGenerator-Agent
+FOUNDRY_SQL_AGENT_VERSION=3
 FOUNDRY_FORCE_SEARCH_TOOL=true
 AZURE_MONITOR_RESOURCE_ID=/subscriptions/<sub>/resourceGroups/<rg>/providers/Microsoft.CognitiveServices/accounts/<foundry-account>
 AZURE_MONITOR_METRIC_NAMES=TokenTransaction,ProcessedPromptTokens,GeneratedTokens,Requests,Latency
@@ -57,6 +59,10 @@ AZURE_MONITOR_METRIC_NAMES=TokenTransaction,ProcessedPromptTokens,GeneratedToken
 
 Agent version은 Foundry portal에서 Publish된 버전을 사용한다. 버전 값을 비워두면 Agent 이름만으로 호출한다.
 Foundry Agent reference 호출에서는 Agent의 배포 설정을 따르므로 `temperature` 같은 생성 옵션은 요청 payload에 넣지 않는다.
+
+IT 개발자 질문에서는 먼저 로컬 Qwen 라우터가 SQL 생성 요청인지 `yes`/`no` 한 단어로 판정한다.
+`yes`이면 `SQLGenerator-Agent`가 `tb-router-md-index`의 `테이블.md`를 참조해 SQL을 생성하고,
+`no`이면 기존 `test-agent`가 `ops-knowledge` 기반 RAG 답변을 생성한다.
 
 ## RAG 지침서 초안
 

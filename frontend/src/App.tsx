@@ -1515,9 +1515,11 @@ function routeSummary(response: ChatResponse | null, health: HealthResponse | nu
   const answerBackend = String(response?.metadata?.answer_backend ?? "");
   const ragProvider = String(response?.metadata?.rag_provider ?? health?.rag_provider ?? "multi_agent");
   const retrieval = sourceBackends(response).join(", ") || (ragProvider === "local" ? "local_json" : "azure_ai_search");
-  const isCloud = answerBackend === "foundry" || retrieval.includes("azure_ai_search");
+  const isCloud = answerBackend === "foundry" || answerBackend === "foundry_sql_generator" || retrieval.includes("azure_ai_search");
   const answer =
-    answerBackend === "foundry"
+    answerBackend === "foundry_sql_generator"
+      ? "SQLGenerator-Agent"
+      : answerBackend === "foundry"
       ? "MS Foundry gpt-5.4"
       : answerBackend === "safety"
         ? "보안 차단"
@@ -1538,6 +1540,7 @@ function routeSummary(response: ChatResponse | null, health: HealthResponse | nu
 
 function routeStatusLabel(response: ChatResponse | null, health: HealthResponse | null) {
   const answerBackend = String(response?.metadata?.answer_backend ?? "");
+  if (answerBackend === "foundry_sql_generator") return "SQLGenerator-Agent";
   if (answerBackend === "foundry") return "MS Foundry connected";
   if (answerBackend) return answerBackend;
   if (health?.ms_route === "foundry_search_tool") return "Foundry Search ready";
@@ -1578,6 +1581,7 @@ function roleLabel(role: UserRole | string) {
 }
 
 function routeLabel(answerBackend: string) {
+  if (answerBackend === "foundry_sql_generator") return "SQL Generator";
   if (answerBackend === "foundry") return "MS Foundry";
   if (answerBackend === "local") return "Local";
   if (answerBackend === "safety") return "Safety";

@@ -98,6 +98,8 @@ class Settings:
     foundry_api_key: str = ""
     foundry_agent_name: str = ""
     foundry_agent_version: str = ""
+    foundry_sql_agent_name: str = "SQLGenerator-Agent"
+    foundry_sql_agent_version: str = "3"
     foundry_ai_search_connection_id: str = ""
     foundry_ai_search_query_type: str = "semantic"
     foundry_top_k: int = 5
@@ -204,6 +206,12 @@ def load_settings() -> Settings:
         foundry_api_key=_get("FOUNDRY_API_KEY", "", dotenv_values),
         foundry_agent_name=_get("FOUNDRY_AGENT_NAME", "", dotenv_values),
         foundry_agent_version=_get("FOUNDRY_AGENT_VERSION", "", dotenv_values),
+        foundry_sql_agent_name=_get(
+            "FOUNDRY_SQL_AGENT_NAME",
+            "SQLGenerator-Agent",
+            dotenv_values,
+        ),
+        foundry_sql_agent_version=_get("FOUNDRY_SQL_AGENT_VERSION", "3", dotenv_values),
         foundry_ai_search_connection_id=_get(
             "FOUNDRY_AI_SEARCH_CONNECTION_ID", "", dotenv_values
         ),

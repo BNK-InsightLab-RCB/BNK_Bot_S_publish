@@ -67,11 +67,22 @@ class FoundryAgentClient:
         user_role: str = "branch",
         context_hint: str = "",
         agent_first: bool = False,
+        agent_name: str = "",
+        agent_version: str = "",
+        agent_mode: str = "rag",
     ) -> Optional[FoundryResponse]:
         """Ask Foundry for a grounded answer."""
         try:
             self._validate()
-            payload = self._payload(question, user_role, context_hint, agent_first=agent_first)
+            payload = self._payload(
+                question,
+                user_role,
+                context_hint,
+                agent_first=agent_first,
+                agent_name=agent_name,
+                agent_version=agent_version,
+                agent_mode=agent_mode,
+            )
             response = self._post_response(payload)
             if _requires_semantic_retry(response):
                 payload = self._payload(
@@ -80,6 +91,9 @@ class FoundryAgentClient:
                     context_hint,
                     query_type_override="semantic",
                     agent_first=agent_first,
+                    agent_name=agent_name,
+                    agent_version=agent_version,
+                    agent_mode=agent_mode,
                 )
                 response = self._post_response(payload)
             if response.status_code >= 400 and _has_search_tool(payload):
@@ -121,12 +135,19 @@ class FoundryAgentClient:
         query_type_override: str = "",
         disable_tools: bool = False,
         agent_first: bool = False,
+        agent_name: str = "",
+        agent_version: str = "",
+        agent_mode: str = "rag",
     ) -> Dict[str, object]:
-        prompt = _foundry_prompt(
-            question,
-            user_role,
-            "" if agent_first else context_hint,
-            agent_first=agent_first,
+        prompt = (
+            _sql_generator_prompt(question)
+            if agent_mode == "sql_generator"
+            else _foundry_prompt(
+                question,
+                user_role,
+                "" if agent_first else context_hint,
+                agent_first=agent_first,
+            )
         )
         payload: Dict[str, object] = {
             "model": self.model_deployment,
@@ -135,14 +156,16 @@ class FoundryAgentClient:
         if disable_tools:
             payload["temperature"] = 0.1
             return payload
-        if settings.foundry_agent_name:
+        configured_agent_name = agent_name or settings.foundry_agent_name
+        configured_agent_version = agent_version or settings.foundry_agent_version
+        if configured_agent_name:
             payload["tool_choice"] = "required" if settings.foundry_force_search_tool else "auto"
             agent_reference = {
-                "name": settings.foundry_agent_name,
+                "name": configured_agent_name,
                 "type": "agent_reference",
             }
-            if settings.foundry_agent_version:
-                agent_reference["version"] = settings.foundry_agent_version
+            if configured_agent_version:
+                agent_reference["version"] = configured_agent_version
             payload["agent_reference"] = agent_reference
             return payload
         payload["temperature"] = 0.1
@@ -255,6 +278,14 @@ def _foundry_prompt(
         "마지막에는 조건을 확인한 뒤 다시 시도하고, 계속 오류가 나면 IT부서에 전달할 "
         "정보를 정리하라고 안내한다.\n"
         f"{hint}\n\n사용자 질문:\n{question}"
+    )
+
+
+def _sql_generator_prompt(question: str) -> str:
+    return (
+        "사용자의 요청을 SQLGenerator-Agent 지침에 따라 처리한다. "
+        "필요한 경우 연결된 Azure AI Search의 tb-router-md-index 지식을 사용한다.\n\n"
+        f"사용자 SQL 생성 요청:\n{question}"
     )
 
 

@@ -130,6 +130,8 @@ FOUNDRY_MODEL_DEPLOYMENT=gpt-5.4
 # tool connected to AZURE_SEARCH_INDEX.
 FOUNDRY_AGENT_NAME=test-agent
 FOUNDRY_AGENT_VERSION=3
+FOUNDRY_SQL_AGENT_NAME=SQLGenerator-Agent
+FOUNDRY_SQL_AGENT_VERSION=3
 # Fallback route: let this backend attach the Search tool directly.
 FOUNDRY_AI_SEARCH_CONNECTION_ID=/subscriptions/<sub>/resourceGroups/<rg>/providers/Microsoft.CognitiveServices/accounts/<foundry-account>/projects/<project>/connections/<search-connection>
 
@@ -292,6 +294,9 @@ RAG_PROVIDER=multi_agent uvicorn backend.app.main:app --reload --port 9000
 the user's question to Foundry, and the Foundry Agent/Search tool performs
 retrieval against `AZURE_SEARCH_INDEX`. If Foundry is unavailable, the backend
 falls back to direct Azure AI Search retrieval and then local role guardrails.
+For IT users, the backend first asks local Qwen to answer exactly `yes` or `no`
+for SQL-generation intent. `yes` routes to `FOUNDRY_SQL_AGENT_NAME`; `no` routes
+to the normal RAG agent.
 
 The admin dashboard can show real Microsoft-side model metrics when
 `AZURE_MONITOR_RESOURCE_ID` is set and the signed-in Azure CLI identity can read

@@ -14,6 +14,7 @@ from backend.app.foundry.agent_client import (
     _requires_semantic_retry,
 )
 from backend.app.foundry import agent_client as foundry_module
+from backend.app.agents.sql_intent_classifier import SQLIntentDecision
 from backend.app.storage.azure_search import _hit_from_payload, _search_body, dumps_schema_preview
 
 
@@ -112,6 +113,49 @@ def test_foundry_payload_uses_agent_reference_version(monkeypatch):
     assert "Azure AI Search 도구를 먼저 사용" in str(payload["input"])
 
 
+def test_foundry_payload_can_route_to_sql_generator_agent(monkeypatch):
+    monkeypatch.setattr(
+        foundry_module,
+        "settings",
+        SimpleNamespace(
+            foundry_agent_name="test-agent",
+            foundry_agent_version="3",
+            foundry_force_search_tool=True,
+            foundry_ai_search_connection_id="",
+            foundry_ai_search_query_type="semantic",
+            foundry_top_k=5,
+            foundry_timeout_seconds=90,
+            azure_search_index="ops-knowledge",
+        ),
+    )
+    client = FoundryAgentClient(
+        project_endpoint="https://example.services.ai.azure.com/api/projects/proj-default",
+        model_deployment="gpt-5.4",
+        api_key="test-key",
+    )
+
+    payload = client._payload(
+        "고객별 잔액 조회 SQL을 만들어줘",
+        user_role="it",
+        context_hint="",
+        agent_first=True,
+        agent_name="SQLGenerator-Agent",
+        agent_version="3",
+        agent_mode="sql_generator",
+    )
+
+    assert payload["agent_reference"] == {
+        "name": "SQLGenerator-Agent",
+        "type": "agent_reference",
+        "version": "3",
+    }
+    assert payload["tool_choice"] == "required"
+    assert "temperature" not in payload
+    assert "tb-router-md-index" in str(payload["input"])
+    assert "사용자 SQL 생성 요청" in str(payload["input"])
+    assert "Azure AI Search 도구를 먼저 사용" not in str(payload["input"])
+
+
 def test_supervisor_uses_foundry_agent_first(monkeypatch):
     monkeypatch.setattr(
         supervisor_module,
@@ -143,6 +187,118 @@ def test_supervisor_uses_foundry_agent_first(monkeypatch):
     assert response["metadata"]["workflow"] == "foundry_agent_search_tool"
     assert response["sources"][0]["retrieval_backend"] == "foundry"
     assert any("agent-first route selected" in step for step in response["metadata"]["agent_trace"])
+
+
+def test_supervisor_routes_it_sql_generation_to_sql_agent(monkeypatch):
+    monkeypatch.setattr(
+        supervisor_module,
+        "settings",
+        SimpleNamespace(
+            rag_provider="multi_agent",
+            foundry_agent_name="test-agent",
+            foundry_agent_version="3",
+            foundry_sql_agent_name="SQLGenerator-Agent",
+            foundry_sql_agent_version="3",
+            foundry_ai_search_connection_id="",
+            azure_search_endpoint="https://search.example",
+            enable_llm_chat=False,
+        ),
+    )
+
+    class FakeClassifier:
+        def classify(self, question):
+            return SQLIntentDecision(True, "yes", "qwen")
+
+    class FakeFoundryClient:
+        def answer(
+            self,
+            question,
+            user_role,
+            context_hint="",
+            agent_first=False,
+            agent_name="",
+            agent_version="",
+            agent_mode="rag",
+        ):
+            assert agent_first is True
+            assert context_hint == ""
+            assert agent_name == "SQLGenerator-Agent"
+            assert agent_version == "3"
+            assert agent_mode == "sql_generator"
+            return FoundryResponse(
+                answer="주요 테이블: TB_CUSTOMER\n\n```sql\nSELECT * FROM TB_CUSTOMER;\n```",
+                citations=[FoundryCitation(title="테이블.md", url="https://example.com/tables")],
+            )
+
+    response = SupervisorAgent(
+        foundry_client=FakeFoundryClient(),
+        sql_intent_classifier=FakeClassifier(),
+    ).handle(
+        "고객별 잔액 조회 SQL을 만들어줘",
+        user_role="it",
+    )
+
+    assert response["metadata"]["answer_backend"] == "foundry_sql_generator"
+    assert response["metadata"]["workflow"] == "foundry_sql_generator_agent"
+    assert response["metadata"]["agent_route"] == "sql_generator"
+    assert response["metadata"]["sql_router_decision"] == "yes"
+    assert response["sources"][0]["retrieval_backend"] == "foundry_sql_generator"
+    assert "SELECT * FROM TB_CUSTOMER" in response["answer"]
+
+
+def test_supervisor_routes_it_non_sql_question_to_rag_agent(monkeypatch):
+    monkeypatch.setattr(
+        supervisor_module,
+        "settings",
+        SimpleNamespace(
+            rag_provider="multi_agent",
+            foundry_agent_name="test-agent",
+            foundry_agent_version="3",
+            foundry_sql_agent_name="SQLGenerator-Agent",
+            foundry_sql_agent_version="3",
+            foundry_ai_search_connection_id="",
+            azure_search_endpoint="https://search.example",
+            enable_llm_chat=False,
+        ),
+    )
+
+    class FakeClassifier:
+        def classify(self, question):
+            return SQLIntentDecision(False, "no", "qwen")
+
+    class FakeFoundryClient:
+        def answer(
+            self,
+            question,
+            user_role,
+            context_hint="",
+            agent_first=False,
+            agent_name="",
+            agent_version="",
+            agent_mode="rag",
+        ):
+            assert agent_first is True
+            assert context_hint == ""
+            assert agent_name == ""
+            assert agent_version == ""
+            assert agent_mode == "rag"
+            return FoundryResponse(
+                answer="[가능한 원인]\nRAG Agent 검색 근거 기반 답변입니다.",
+                citations=[FoundryCitation(title="업무지침", url="https://example.com/doc")],
+            )
+
+    response = SupervisorAgent(
+        foundry_client=FakeFoundryClient(),
+        sql_intent_classifier=FakeClassifier(),
+    ).handle(
+        "자동이체 등록 화면 오류의 API, 서비스, SQL 근거를 요약해줘",
+        user_role="it",
+    )
+
+    assert response["metadata"]["answer_backend"] == "foundry"
+    assert response["metadata"]["workflow"] == "foundry_agent_search_tool"
+    assert response["metadata"]["agent_route"] == "rag"
+    assert response["sources"][0]["retrieval_backend"] == "foundry"
 
 
 def test_azure_search_schema_has_required_foundry_fields():
