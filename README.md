@@ -89,6 +89,20 @@ The Docker compose file limits Elasticsearch JVM heap to 2 GB for a Mac M4 Pro /
 ./scripts/run_qwen_server.sh
 ```
 
+To keep Qwen running in the background on macOS, install it as a user LaunchAgent:
+
+```bash
+.venv/bin/pip install mlx-lm
+./scripts/qwen_service.sh start
+./scripts/qwen_service.sh status
+./scripts/qwen_service.sh logs
+./scripts/qwen_service.sh stop
+```
+
+`start` keeps the local Qwen OpenAI-compatible server alive after the terminal is
+closed and restarts it if it exits. Logs are written to `data/logs/qwen.out.log`
+and `data/logs/qwen.err.log`.
+
 This script runs:
 
 ```bash
