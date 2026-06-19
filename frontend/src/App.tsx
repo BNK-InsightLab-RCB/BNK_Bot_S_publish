@@ -2,7 +2,6 @@ import { FormEvent, useEffect, useMemo, useState } from "react";
 import {
   Activity,
   Bot,
-  Building2,
   Cloud,
   Code2,
   Database,
@@ -12,7 +11,6 @@ import {
   LogOut,
   Mail,
   MessageSquarePlus,
-  MonitorCog,
   Reply,
   Search,
   Shield,
@@ -28,7 +26,6 @@ import {
   ingestSample,
   loginUser,
   replySupportTicket,
-  searchKnowledge,
   signupUser,
   uploadFilesToStorage,
   type AuthUser,
@@ -36,14 +33,13 @@ import {
   type HealthResponse,
   type RoleCode,
   type RuntimeLog,
-  type SearchResult,
+  type SourceCitation,
   type SupportTicket,
   type UserRole,
 } from "./api";
 import { AdminPanel } from "./components/AdminPanel";
 import { AnswerView } from "./components/AnswerView";
 import { ChatPanel } from "./components/ChatPanel";
-import { SourceList } from "./components/SourceList";
 import "./styles.css";
 
 const roleOptions: Array<{ code: RoleCode; role: UserRole; label: string }> = [
@@ -81,8 +77,6 @@ export default function App() {
   const [ticketStatus, setTicketStatus] = useState("");
   const [logs, setLogs] = useState<RuntimeLog[]>([]);
   const [tickets, setTickets] = useState<SupportTicket[]>([]);
-  const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
-  const [searching, setSearching] = useState(false);
   const [selectedTicketId, setSelectedTicketId] = useState("");
   const [error, setError] = useState("");
 
@@ -194,6 +188,7 @@ export default function App() {
         retrieval_backend: sourceBackends(response).join(", "),
         confidence: response.confidence,
         source_count: response.sources.length,
+        sources: response.sources,
       });
       setSelectedTicketId(ticket.id);
       setTicketStatus(`${ticket.id} 접수`);
@@ -219,20 +214,6 @@ export default function App() {
       await refreshRuntime();
     } catch (event) {
       setError(event instanceof Error ? event.message : "쪽지 답장에 실패했습니다.");
-    }
-  }
-
-  async function handleSearch(query: string) {
-    if (!query.trim()) return;
-    setSearching(true);
-    setError("");
-    try {
-      const result = await searchKnowledge(query.trim(), "it");
-      setSearchResults(result);
-    } catch (event) {
-      setError(event instanceof Error ? event.message : "검색에 실패했습니다.");
-    } finally {
-      setSearching(false);
     }
   }
 
@@ -286,11 +267,8 @@ export default function App() {
           activeQuestion={activeQuestion}
           tickets={tickets}
           selectedTicket={selectedTicket}
-          searchResults={searchResults}
-          searching={searching}
           onAsk={handleAsk}
           onReply={handleReply}
-          onSearch={handleSearch}
           onRefresh={refreshRuntime}
           onSelectTicket={setSelectedTicketId}
         />
@@ -535,11 +513,8 @@ function ITWorkspace({
   activeQuestion,
   tickets,
   selectedTicket,
-  searchResults,
-  searching,
   onAsk,
   onReply,
-  onSearch,
   onRefresh,
   onSelectTicket,
 }: {
@@ -549,11 +524,8 @@ function ITWorkspace({
   activeQuestion: string;
   tickets: SupportTicket[];
   selectedTicket: SupportTicket | null;
-  searchResults: SearchResult[];
-  searching: boolean;
   onAsk: (question: string, userRole: UserRole) => Promise<void>;
   onReply: (ticketId: string, body: string) => Promise<void>;
-  onSearch: (query: string) => Promise<void>;
   onRefresh: () => Promise<void>;
   onSelectTicket: (ticketId: string) => void;
 }) {
@@ -561,15 +533,16 @@ function ITWorkspace({
     <div className="workspace it-layout">
       <aside className="ops-rail mail-rail">
         <ITMailbox
-          session={session}
           tickets={tickets}
           selectedTicket={selectedTicket}
-          onReply={onReply}
           onRefresh={onRefresh}
           onSelectTicket={onSelectTicket}
         />
       </aside>
-      <section className="chat-workspace it-chat">
+      <section className="ticket-detail-rail">
+        <ITTicketDetail session={session} ticket={selectedTicket} onReply={onReply} />
+      </section>
+      <section className="developer-chat-rail">
         <ChatPanel
           loading={loading}
           onAsk={onAsk}
@@ -580,13 +553,6 @@ function ITWorkspace({
           samples={itSamples}
         />
         <AnswerView response={response} loading={loading} question={activeQuestion} />
-        <SourceList sources={response?.sources ?? []} />
-        <ITSearchPanel
-          response={response}
-          searchResults={searchResults}
-          searching={searching}
-          onSearch={onSearch}
-        />
       </section>
     </div>
   );
@@ -716,29 +682,16 @@ function BranchMailbox({
 }
 
 function ITMailbox({
-  session,
   tickets,
   selectedTicket,
-  onReply,
   onRefresh,
   onSelectTicket,
 }: {
-  session: AuthUser;
   tickets: SupportTicket[];
   selectedTicket: SupportTicket | null;
-  onReply: (ticketId: string, body: string) => Promise<void>;
   onRefresh: () => Promise<void>;
   onSelectTicket: (ticketId: string) => void;
 }) {
-  const [replyText, setReplyText] = useState("");
-
-  async function submitReply(event: FormEvent) {
-    event.preventDefault();
-    if (!selectedTicket || !replyText.trim()) return;
-    await onReply(selectedTicket.id, replyText.trim());
-    setReplyText("");
-  }
-
   return (
     <section className="panel mailbox it-mailbox">
       <div className="table-head">
@@ -756,16 +709,45 @@ function ITMailbox({
         emptyText="접수된 쪽지가 없습니다."
         onSelectTicket={onSelectTicket}
       />
-      <TicketThread ticket={selectedTicket} />
+    </section>
+  );
+}
+
+function ITTicketDetail({
+  session,
+  ticket,
+  onReply,
+}: {
+  session: AuthUser;
+  ticket: SupportTicket | null;
+  onReply: (ticketId: string, body: string) => Promise<void>;
+}) {
+  const [replyText, setReplyText] = useState("");
+
+  async function submitReply(event: FormEvent) {
+    event.preventDefault();
+    if (!ticket || !replyText.trim()) return;
+    await onReply(ticket.id, replyText.trim());
+    setReplyText("");
+  }
+
+  return (
+    <section className="panel ticket-detail-panel">
+      <div className="panel-title">
+        <Mail size={19} aria-hidden="true" />
+        <h2>문의 상세</h2>
+      </div>
+      <TicketThread ticket={ticket} />
+      <EvidenceList sources={ticket?.sources ?? []} />
       <form className="reply-form" onSubmit={submitReply}>
         <textarea
           value={replyText}
           onChange={(event) => setReplyText(event.target.value)}
-          placeholder={`${session.real_name} 답장 입력`}
-          rows={4}
-          disabled={!selectedTicket}
+          placeholder={ticket ? `${session.real_name} 답장 입력` : "메일을 선택하면 답장할 수 있습니다."}
+          rows={5}
+          disabled={!ticket}
         />
-        <button type="submit" disabled={!selectedTicket || !replyText.trim()}>
+        <button type="submit" disabled={!ticket || !replyText.trim()}>
           <Reply size={18} aria-hidden="true" />
           <span>답장 보내기</span>
         </button>
@@ -846,6 +828,36 @@ function TicketThread({ ticket, compact = false }: { ticket: SupportTicket | nul
   );
 }
 
+function EvidenceList({ sources }: { sources: SourceCitation[] }) {
+  return (
+    <div className="evidence-list">
+      <div className="panel-title">
+        <Code2 size={18} aria-hidden="true" />
+        <h3>답변 근거</h3>
+      </div>
+      {sources.length === 0 ? (
+        <p>저장된 근거가 없습니다. 필요하면 오른쪽 개발자 챗봇에서 다시 분석해 주세요.</p>
+      ) : (
+        <ul>
+          {sources.slice(0, 8).map((source, index) => (
+            <li key={`${source.doc_id}-${index}`}>
+              <strong>{source.title}</strong>
+              {source.source_path && (
+                <span>
+                  {source.source_path}:{source.line_range}
+                </span>
+              )}
+              <p>{source.reason}</p>
+              {source.tables && source.tables.length > 0 && <small>{source.tables.join(", ")}</small>}
+              {source.retrieval_backend && <small>{source.retrieval_backend}</small>}
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
 function RoutePanel({ route }: { route: RouteSummary }) {
   return (
     <section className="panel route-panel">
@@ -862,53 +874,6 @@ function RoutePanel({ route }: { route: RouteSummary }) {
           <Search size={16} aria-hidden="true" />
           {route.retrieval}
         </span>
-      </div>
-    </section>
-  );
-}
-
-function ITSearchPanel({
-  response,
-  searchResults,
-  searching,
-  onSearch,
-}: {
-  response: ChatResponse | null;
-  searchResults: SearchResult[];
-  searching: boolean;
-  onSearch: (query: string) => Promise<void>;
-}) {
-  const [query, setQuery] = useState("자동이체 출금계좌 만료 납부자번호");
-  const generatedQuery = buildGeneratedQuery(response);
-
-  return (
-    <section className="panel it-tools">
-      <div className="panel-title">
-        <Code2 size={19} aria-hidden="true" />
-        <h2>근거 검색</h2>
-      </div>
-      <div className="query-box">
-        <span>{generatedQuery || "답변 후 검색어가 생성됩니다."}</span>
-      </div>
-      <form
-        onSubmit={(event) => {
-          event.preventDefault();
-          void onSearch(query);
-        }}
-      >
-        <input value={query} onChange={(event) => setQuery(event.target.value)} />
-        <button type="submit" disabled={searching}>
-          <Search size={18} aria-hidden="true" />
-        </button>
-      </form>
-      <div className="search-results">
-        {searchResults.slice(0, 5).map((result) => (
-          <article key={result.document.doc_id}>
-            <strong>{result.document.title}</strong>
-            <span>{result.retrieval_backend}</span>
-            <p>{result.summary}</p>
-          </article>
-        ))}
       </div>
     </section>
   );
@@ -989,19 +954,6 @@ function sourceBackends(response: ChatResponse | null): string[] {
   return Array.from(
     new Set(response.sources.map((source) => source.retrieval_backend).filter(Boolean) as string[]),
   );
-}
-
-function buildGeneratedQuery(response: ChatResponse | null) {
-  if (!response) return "";
-  const source = response.sources[0];
-  const terms = [
-    source?.title,
-    source?.api_path,
-    source?.class_name,
-    source?.method_name,
-    ...(source?.tables ?? []),
-  ].filter(Boolean);
-  return terms.join(" ");
 }
 
 function buildTicketSummary(response: ChatResponse) {

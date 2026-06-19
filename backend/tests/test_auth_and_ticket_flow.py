@@ -31,6 +31,7 @@ def test_runtime_store_adds_ticket_reply(tmp_path):
             "sender_name": "홍길동",
             "sender_employee_id": "B001",
             "sender_role_code": "01",
+            "sources": [{"doc_id": "doc1", "title": "CustomerService.save", "reason": "권한 확인"}],
         }
     )
 
@@ -46,5 +47,6 @@ def test_runtime_store_adds_ticket_reply(tmp_path):
     )
 
     assert updated["status"] == "replied"
+    assert updated["sources"][0]["title"] == "CustomerService.save"
     assert updated["replies"][0]["body"] == "권한 부여 상태를 확인했습니다."
     assert store.list_tickets()[0]["sender_employee_id"] == "B001"

@@ -150,6 +150,7 @@ class SupportTicketRequest(BaseModel):
     retrieval_backend: str = ""
     confidence: float = 0
     source_count: int = 0
+    sources: List[Dict[str, object]] = Field(default_factory=list)
 
 
 class TicketReplyRequest(BaseModel):

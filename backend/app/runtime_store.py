@@ -73,6 +73,7 @@ class RuntimeStore:
             "retrieval_backend": str(payload.get("retrieval_backend") or ""),
             "confidence": payload.get("confidence", 0),
             "source_count": int(payload.get("source_count") or 0),
+            "sources": _safe_sources(payload.get("sources")),
             "replies": [],
         }
         self._append(self.ticket_path, ticket)
@@ -169,6 +170,7 @@ class RuntimeStore:
         normalized.setdefault("sender_employee_id", "")
         normalized.setdefault("sender_role", "branch")
         normalized.setdefault("sender_role_code", "01")
+        normalized["sources"] = _safe_sources(normalized.get("sources"))
         replies = normalized.get("replies")
         normalized["replies"] = replies if isinstance(replies, list) else []
         return normalized
@@ -181,3 +183,27 @@ def _now() -> str:
 def _preview(text: str, limit: int = 140) -> str:
     compact = " ".join((text or "").split())
     return compact[:limit]
+
+
+def _safe_sources(value: object) -> List[dict]:
+    if not isinstance(value, list):
+        return []
+    sources: List[dict] = []
+    for item in value[:12]:
+        if isinstance(item, dict):
+            sources.append(
+                {
+                    "doc_id": str(item.get("doc_id") or ""),
+                    "title": str(item.get("title") or ""),
+                    "source_path": str(item.get("source_path") or ""),
+                    "line_range": str(item.get("line_range") or ""),
+                    "reason": str(item.get("reason") or ""),
+                    "api_path": item.get("api_path"),
+                    "class_name": item.get("class_name"),
+                    "method_name": item.get("method_name"),
+                    "sql_id": item.get("sql_id"),
+                    "tables": item.get("tables") if isinstance(item.get("tables"), list) else [],
+                    "retrieval_backend": item.get("retrieval_backend"),
+                }
+            )
+    return sources

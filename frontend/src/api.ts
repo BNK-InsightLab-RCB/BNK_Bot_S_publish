@@ -76,6 +76,7 @@ export interface SupportTicket {
   retrieval_backend: string;
   confidence: number;
   source_count: number;
+  sources: SourceCitation[];
   replies: TicketReply[];
 }
 
@@ -233,6 +234,7 @@ export async function createSupportTicket(input: {
   retrieval_backend?: string;
   confidence?: number;
   source_count?: number;
+  sources?: SourceCitation[];
 }): Promise<SupportTicket> {
   const response = await apiFetch("/api/runtime/tickets", {
     method: "POST",

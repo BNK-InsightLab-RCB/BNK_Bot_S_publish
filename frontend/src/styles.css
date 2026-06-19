@@ -853,14 +853,23 @@ button:disabled {
 }
 
 .it-layout {
-  grid-template-columns: 430px minmax(0, 1fr);
+  grid-template-columns: 320px minmax(360px, 0.9fr) minmax(520px, 1.25fr);
 }
 
 .left-rail,
 .right-rail,
-.mail-rail {
+.mail-rail,
+.ticket-detail-rail,
+.developer-chat-rail {
   position: sticky;
   top: 16px;
+}
+
+.ticket-detail-rail,
+.developer-chat-rail {
+  display: grid;
+  gap: 12px;
+  align-content: start;
 }
 
 .question-guide {
@@ -894,7 +903,7 @@ button:disabled {
 .mail-list {
   display: grid;
   gap: 8px;
-  max-height: 360px;
+  max-height: calc(100vh - 280px);
   overflow: auto;
   padding-right: 2px;
 }
@@ -941,6 +950,16 @@ button:disabled {
   gap: 10px;
   border-top: 1px solid #e5e5ea;
   padding-top: 12px;
+}
+
+.ticket-detail-panel {
+  display: grid;
+  gap: 12px;
+}
+
+.ticket-detail-panel .ticket-thread {
+  border-top: 0;
+  padding-top: 0;
 }
 
 .ticket-thread.is-compact {
@@ -1008,6 +1027,57 @@ button:disabled {
   background: #f0f7ff;
 }
 
+.evidence-list {
+  display: grid;
+  gap: 10px;
+  border-top: 1px solid #e5e5ea;
+  padding-top: 12px;
+}
+
+.evidence-list h3 {
+  margin: 0;
+  font-size: 16px;
+}
+
+.evidence-list ul {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.evidence-list li {
+  border: 1px solid #e5e5ea;
+  border-radius: 8px;
+  padding: 11px 12px;
+  background: #fbfbfd;
+}
+
+.evidence-list strong,
+.evidence-list span,
+.evidence-list small {
+  display: block;
+  overflow-wrap: anywhere;
+}
+
+.evidence-list strong {
+  color: #1d1d1f;
+}
+
+.evidence-list span,
+.evidence-list small {
+  margin-top: 4px;
+  color: #6e6e73;
+  font-size: 12px;
+}
+
+.evidence-list p {
+  margin: 6px 0 0;
+  color: #2f3742;
+  line-height: 1.45;
+}
+
 .reply-form {
   display: grid;
   gap: 8px;
@@ -1056,7 +1126,9 @@ button:disabled {
 
   .left-rail,
   .right-rail,
-  .mail-rail {
+  .mail-rail,
+  .ticket-detail-rail,
+  .developer-chat-rail {
     position: static;
   }
 }
