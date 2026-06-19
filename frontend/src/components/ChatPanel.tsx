@@ -1,6 +1,7 @@
 import { FormEvent, useState } from "react";
 import { Send } from "lucide-react";
-import type { UserRole } from "../api";
+import type { ChatResponse, UserRole } from "../api";
+import { AnswerView } from "./AnswerView";
 import { ChatDogeAvatar } from "./ChatDogeAvatar";
 
 interface ChatPanelProps {
@@ -9,9 +10,14 @@ interface ChatPanelProps {
   userRole: UserRole;
   title: string;
   description: string;
+  response?: ChatResponse | null;
+  activeQuestion?: string;
   samples?: string[];
   submitLabel?: string;
   showSamples?: boolean;
+  hideEvidenceSections?: boolean;
+  hideTechnicalSummary?: boolean;
+  hideInternalSections?: boolean;
 }
 
 const defaultSamples = [
@@ -26,11 +32,16 @@ export function ChatPanel({
   userRole,
   title,
   description,
+  response = null,
+  activeQuestion = "",
   samples = defaultSamples,
   submitLabel = "전송",
   showSamples = true,
+  hideEvidenceSections = false,
+  hideTechnicalSummary = false,
+  hideInternalSections = false,
 }: ChatPanelProps) {
-  const [question, setQuestion] = useState(samples[0] ?? "");
+  const [question, setQuestion] = useState("");
 
   async function submit(event: FormEvent) {
     event.preventDefault();
@@ -41,7 +52,7 @@ export function ChatPanel({
   }
 
   return (
-    <section className="chat-panel">
+    <section className="chat-panel chat-shell">
       <div className="chat-panel-head">
         <ChatDogeAvatar />
         <div>
@@ -50,21 +61,16 @@ export function ChatPanel({
         </div>
       </div>
 
-      <form onSubmit={submit} className="ask-form">
-        <textarea
-          value={question}
-          onChange={(event) => setQuestion(event.target.value)}
-          rows={5}
-          placeholder="문의 내용을 입력하세요"
+      <div className="chat-thread" aria-live="polite">
+        <AnswerView
+          response={response}
+          loading={loading}
+          question={activeQuestion}
+          hideEvidenceSections={hideEvidenceSections}
+          hideTechnicalSummary={hideTechnicalSummary}
+          hideInternalSections={hideInternalSections}
         />
-        <div className="form-row">
-          <span className="role-chip">{roleLabel(userRole)}</span>
-          <button type="submit" disabled={loading || !question.trim()} title="질문 보내기">
-            <Send size={18} aria-hidden="true" />
-            <span>{loading ? "답변 생성 중" : submitLabel}</span>
-          </button>
-        </div>
-      </form>
+      </div>
 
       {showSamples && samples.length > 0 && (
         <div className="sample-row">
@@ -75,6 +81,22 @@ export function ChatPanel({
           ))}
         </div>
       )}
+
+      <form onSubmit={submit} className="ask-form chat-composer">
+        <textarea
+          value={question}
+          onChange={(event) => setQuestion(event.target.value)}
+          rows={2}
+          placeholder="문의 내용을 입력하세요"
+        />
+        <div className="form-row">
+          <span className="role-chip">{roleLabel(userRole)}</span>
+          <button type="submit" disabled={loading || !question.trim()} title="질문 보내기">
+            <Send size={18} aria-hidden="true" />
+            <span>{loading ? "답변 생성 중" : submitLabel}</span>
+          </button>
+        </div>
+      </form>
     </section>
   );
 }

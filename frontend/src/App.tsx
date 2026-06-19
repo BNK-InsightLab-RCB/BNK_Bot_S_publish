@@ -43,7 +43,6 @@ import {
   type UserRole,
 } from "./api";
 import { AdminPanel } from "./components/AdminPanel";
-import { AnswerView } from "./components/AnswerView";
 import { ChatPanel } from "./components/ChatPanel";
 import { ChatDogeAvatar } from "./components/ChatDogeAvatar";
 import "./styles.css";
@@ -527,17 +526,12 @@ function BranchWorkspace({
           userRole="branch"
           title="영업점 업무 문의"
           description="화면명, 오류 문구, 처리 상황을 함께 남겨주세요."
+          response={response}
+          activeQuestion={activeQuestion}
           samples={branchSamples}
           submitLabel={response || activeQuestion ? "다시 질문" : "전송"}
           showSamples={!response && !loading && !activeQuestion}
         />
-        {(response || loading || activeQuestion) && (
-          <AnswerView
-            response={response}
-            loading={loading}
-            question={activeQuestion}
-          />
-        )}
       </section>
       <aside className="ops-rail right-rail">
         <BranchMailbox
@@ -596,19 +590,14 @@ function ITWorkspace({
           userRole="it"
           title="IT 개발자 분석 챗봇"
           description="파일, API, 서비스, SQL, 테이블 단서까지 함께 확인합니다."
+          response={response}
+          activeQuestion={activeQuestion}
           samples={itSamples}
           submitLabel={response || activeQuestion ? "다시 분석" : "전송"}
           showSamples={!response && !loading && !activeQuestion}
+          hideEvidenceSections
+          hideTechnicalSummary
         />
-        {(response || loading || activeQuestion) && (
-          <AnswerView
-            response={response}
-            loading={loading}
-            question={activeQuestion}
-            hideEvidenceSections
-            hideTechnicalSummary
-          />
-        )}
       </section>
     </div>
   );
