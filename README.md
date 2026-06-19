@@ -51,6 +51,21 @@ chunk stays close to one screen event, backend method, mapper SQL, table
 definition, or incident note so the LLM gets a compact but actionable evidence
 unit.
 
+For demo review or Blob upload, the local index can also be exported as one
+Korean-formatted JSON file per evidence chunk:
+
+```bash
+.venv/bin/python scripts/export_knowledge_json_pages.py \
+  --local-index-path data/ops_knowledge.json \
+  --output-dir backend/examples/bank_sample/docs/admin_uploads/bnk_hackathon_json_pages \
+  --reset-output
+```
+
+Each file uses the review schema `업무명`, `화면번호`, `화면정보`, `API`, `dto`,
+`error`, `exception`, `업무규칙`, `요약`, and `근거`. For the BNK hackathon demo,
+the generated pages are uploaded under Azure Blob prefix
+`source-live/bnk_hackathon/json-pages/`.
+
 Core fields extracted from source code:
 
 - `business_name`: 업무명 inferred from screen name or backend method.

@@ -33,6 +33,7 @@ class UploadedDocumentParser(BaseParser):
         dto_value = _first(payload, "dto", "DTO", "dtos", "dto_names", "dtoNames")
         error_value = _first(payload, "error", "errors", "error_codes", "errorCodes")
         exception_value = _first(payload, "exception", "exceptions", "exception_types", "exceptionTypes")
+        evidence_value = _as_dict(_first(payload, "근거", "evidence"))
         rules = _to_list(_first(payload, "업무규칙", "business_rules", "businessRules"))
         summary = normalize_ws(
             str(_first(payload, "summary", "요약", "description", "설명") or "")
@@ -47,8 +48,18 @@ class UploadedDocumentParser(BaseParser):
             screen_info=screen_info,
             api_path=_api_path(api_value),
             api_description=_api_description(api_value),
-            dto_names=_to_list(dto_value),
-            error_codes=_to_list(error_value),
+            class_name=str(evidence_value.get("클래스") or evidence_value.get("class_name") or "") or None,
+            method_name=str(evidence_value.get("메서드") or evidence_value.get("method_name") or "") or None,
+            sql_id=str(evidence_value.get("SQL_ID") or evidence_value.get("sql_id") or "") or None,
+            tables=_to_list(evidence_value.get("테이블") or evidence_value.get("tables")),
+            columns=_to_list(evidence_value.get("컬럼") or evidence_value.get("columns")),
+            dto_names=_dto_names(dto_value),
+            dto_fields=_dto_fields(dto_value),
+            input_fields=_to_list(_as_dict(dto_value).get("input_fields")),
+            validation_conditions=_error_validation_conditions(error_value),
+            error_codes=_error_codes(error_value),
+            error_messages=_error_messages(error_value),
+            possible_errors=_error_possible(error_value),
             exception_types=_to_list(exception_value),
             business_rules=rules or _derive_rules(payload),
             branch_guide=f"{business_name} 관련 업무 문의 시 화면명, 오류 문구, 처리 단계를 확인합니다.",
@@ -129,6 +140,51 @@ def _to_list(value: Any) -> List[str]:
     if isinstance(value, dict):
         return unique_keep_order(f"{key}: {item}" for key, item in value.items() if item)
     return unique_keep_order(part.strip() for part in str(value).replace("\n", ",").split(",") if part.strip())
+
+
+def _dto_names(value: Any) -> List[str]:
+    if isinstance(value, dict):
+        return _to_list(value.get("names") or value.get("dto_names") or value.get("DTO"))
+    return _to_list(value)
+
+
+def _dto_fields(value: Any) -> List[str]:
+    if isinstance(value, dict):
+        return _to_list(value.get("fields") or value.get("dto_fields"))
+    return []
+
+
+def _error_codes(value: Any) -> List[str]:
+    if isinstance(value, dict):
+        return _to_list(value.get("codes") or value.get("error_codes"))
+    return _to_list(value)
+
+
+def _error_messages(value: Any) -> List[str]:
+    if isinstance(value, dict):
+        return _to_list(value.get("messages") or value.get("error_messages"))
+    return []
+
+
+def _error_validation_conditions(value: Any) -> List[str]:
+    if isinstance(value, dict):
+        return _to_list(value.get("validation_conditions") or value.get("conditions"))
+    return []
+
+
+def _error_possible(value: Any) -> List[Dict[str, Any]]:
+    if not isinstance(value, dict):
+        return []
+    possible = value.get("possible")
+    if not isinstance(possible, list):
+        return []
+    normalized = []
+    for item in possible:
+        if isinstance(item, dict):
+            normalized.append(item)
+        elif item:
+            normalized.append({"message": str(item)})
+    return normalized
 
 
 def _api_path(value: Any) -> str | None:
