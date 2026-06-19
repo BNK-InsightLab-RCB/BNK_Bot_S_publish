@@ -149,14 +149,12 @@ export default function App() {
     }
   }
 
-  async function handleIngest(uploadAzureSearch = false) {
+  async function handleIngest() {
     setIngesting(true);
     setError("");
     try {
-      const result = await ingestSample(uploadAzureSearch);
-      setIngestStatus(
-        `${result.status} / ${result.indexed_count} docs${uploadAzureSearch ? " / Azure Search" : ""}`,
-      );
+      const result = await ingestSample();
+      setIngestStatus(`${result.status} / ${result.indexed_count} docs / Azure Search`);
       setBackendOnline(true);
       await refreshRuntime();
     } catch (event) {
@@ -172,7 +170,9 @@ export default function App() {
     try {
       const result = await uploadFilesToStorage(files);
       const uploadedSize = result.uploaded.reduce((total, item) => total + item.size, 0);
-      setUploadStatus(`${result.uploaded.length} files / ${(uploadedSize / 1024).toFixed(1)} KiB`);
+      setUploadStatus(
+        `로컬 저장 + Azure Blob 동기화 완료 · ${result.uploaded.length} files / ${(uploadedSize / 1024).toFixed(1)} KiB`,
+      );
       setLastUploaded(result.uploaded);
       await refreshRuntime();
     } catch (event) {
@@ -617,7 +617,7 @@ function AdminWorkspace({
   ingestStatus: string;
   uploading: boolean;
   uploadStatus: string;
-  onIngest: (uploadAzureSearch?: boolean) => Promise<void>;
+  onIngest: () => Promise<void>;
   onStorageUpload: (files: File[]) => Promise<void>;
   onRefresh: () => Promise<void>;
 }) {

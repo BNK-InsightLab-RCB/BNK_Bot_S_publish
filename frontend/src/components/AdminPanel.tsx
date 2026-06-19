@@ -1,11 +1,11 @@
 import { ChangeEvent, DragEvent, useRef, useState } from "react";
-import { CloudUpload, DatabaseZap, RotateCw, UploadCloud } from "lucide-react";
+import { RotateCw, UploadCloud } from "lucide-react";
 import type { AdminStorageEvent, StorageUploadItem } from "../api";
 
 interface AdminPanelProps {
   ingesting: boolean;
   ingestStatus: string;
-  onIngest: (uploadAzureSearch?: boolean) => Promise<void>;
+  onIngest: () => Promise<void>;
   uploading: boolean;
   uploadStatus: string;
   lastUploaded: StorageUploadItem[];
@@ -48,22 +48,18 @@ export function AdminPanel({
     <section className="panel admin-panel">
       <div className="admin-row">
         <div>
-          <h2>소스 색인 / Azure 반영</h2>
-          <p>{ingestStatus || "로컬 색인과 Azure AI Search 반영을 선택해서 실행합니다."}</p>
+          <h2>소스 업로드 / 자동 동기화</h2>
+          <p>{ingestStatus || "지식문서 색인과 Azure AI Search 반영까지 자동으로 진행합니다."}</p>
         </div>
         <div className="admin-button-group">
-          <button type="button" onClick={() => void onIngest(false)} disabled={ingesting} title="로컬 색인 실행">
-            {ingesting ? <RotateCw size={18} aria-hidden="true" /> : <DatabaseZap size={18} aria-hidden="true" />}
-            <span>{ingesting ? "실행 중" : "로컬 색인"}</span>
-          </button>
           <button
             type="button"
-            onClick={() => void onIngest(true)}
+            onClick={() => void onIngest()}
             disabled={ingesting}
-            title="로컬 색인 후 Azure AI Search 업로드"
+            title="지식문서 색인 및 Azure Search 자동 반영"
           >
-            <CloudUpload size={18} aria-hidden="true" />
-            <span>Azure Search</span>
+            {ingesting ? <RotateCw size={18} aria-hidden="true" /> : <UploadCloud size={18} aria-hidden="true" />}
+            <span>{ingesting ? "업로드 중" : "업로드"}</span>
           </button>
         </div>
       </div>

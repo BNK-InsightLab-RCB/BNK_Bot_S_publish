@@ -293,9 +293,7 @@ export async function getHealth(): Promise<HealthResponse> {
   return response.json();
 }
 
-export async function ingestSample(
-  uploadAzureSearch = false,
-): Promise<{ status: string; indexed_count: number }> {
+export async function ingestSample(): Promise<{ status: string; indexed_count: number }> {
   const response = await apiFetch("/api/ingest/run", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -303,7 +301,7 @@ export async function ingestSample(
       source_dir: "backend/examples/bank_sample",
       reset_index: true,
       generate_summaries: false,
-      upload_azure_search: uploadAzureSearch,
+      upload_azure_search: true,
     }),
   });
   if (!response.ok) {
