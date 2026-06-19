@@ -670,22 +670,24 @@ function AdminWorkspace({
           />
         </section>
         <AdminProviderBoards dashboard={dashboard} />
-        <div className="admin-main-grid">
-          <AdminKpiPanel dashboard={dashboard} />
-          <AdminPanel
-            ingesting={ingesting}
-            ingestStatus={ingestStatus}
-            onIngest={onIngest}
-            uploading={uploading}
-            uploadStatus={uploadStatus}
-            lastUploaded={lastUploaded}
-            recentStorageEvents={dashboard?.recent_storage_events ?? []}
-            onStorageUpload={onStorageUpload}
-          />
-        </div>
-        <div className="admin-observe-grid">
-          <AdminModelEventsPanel dashboard={dashboard} />
-          <LogPanel logs={logs} onRefresh={onRefresh} />
+        <div className="admin-content-grid">
+          <div className="admin-stack">
+            <AdminKpiPanel dashboard={dashboard} />
+            <AdminModelEventsPanel dashboard={dashboard} />
+          </div>
+          <div className="admin-stack">
+            <AdminPanel
+              ingesting={ingesting}
+              ingestStatus={ingestStatus}
+              onIngest={onIngest}
+              uploading={uploading}
+              uploadStatus={uploadStatus}
+              lastUploaded={lastUploaded}
+              recentStorageEvents={dashboard?.recent_storage_events ?? []}
+              onStorageUpload={onStorageUpload}
+            />
+            <LogPanel logs={logs} onRefresh={onRefresh} />
+          </div>
         </div>
       </section>
     </div>
