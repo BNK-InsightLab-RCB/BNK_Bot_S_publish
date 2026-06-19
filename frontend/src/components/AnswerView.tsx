@@ -1,5 +1,6 @@
 import { AlertCircle, CheckCircle2, ClipboardList, Wrench } from "lucide-react";
 import type { ChatResponse } from "../api";
+import { ChatDogeAvatar } from "./ChatDogeAvatar";
 
 interface AnswerViewProps {
   response: ChatResponse | null;
@@ -29,9 +30,7 @@ export function AnswerView({
     return (
       <section className="answer-view answer-empty">
         <div className="bot-message">
-          <div className="assistant-avatar" aria-hidden="true">
-            AI
-          </div>
+          <ChatDogeAvatar />
           <div>
             <h2>질문을 기다리고 있습니다</h2>
             <p>오류 문구, 화면명, 입력값 상황을 함께 적으면 더 정확하게 찾습니다.</p>
@@ -56,9 +55,7 @@ export function AnswerView({
         </div>
       )}
       <div className="bot-message">
-        <div className="assistant-avatar" aria-hidden="true">
-          AI
-        </div>
+        <ChatDogeAvatar />
         <div className="bot-message-body">
           <h2>{loading ? "답변 생성 중" : "답변"}</h2>
           {loading ? (

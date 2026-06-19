@@ -283,11 +283,17 @@ button:disabled {
   height: 36px;
   display: grid;
   place-items: center;
-  border-radius: 8px;
-  color: #fff;
-  background: var(--text);
-  font-size: 12px;
-  font-weight: 760;
+  overflow: hidden;
+  border: 1px solid rgba(0, 102, 204, 0.16);
+  border-radius: 10px;
+  background: var(--blue-soft);
+}
+
+.assistant-avatar img {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: cover;
 }
 
 .chat-panel h2,

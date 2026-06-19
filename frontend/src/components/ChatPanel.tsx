@@ -1,6 +1,7 @@
 import { FormEvent, useState } from "react";
 import { Send } from "lucide-react";
 import type { UserRole } from "../api";
+import { ChatDogeAvatar } from "./ChatDogeAvatar";
 
 interface ChatPanelProps {
   loading: boolean;
@@ -36,9 +37,7 @@ export function ChatPanel({
   return (
     <section className="chat-panel">
       <div className="chat-panel-head">
-        <div className="assistant-avatar" aria-hidden="true">
-          AI
-        </div>
+        <ChatDogeAvatar />
         <div>
           <h2>{title}</h2>
           <p>{description}</p>
