@@ -1085,6 +1085,13 @@ button:disabled {
   overflow: auto;
 }
 
+.evidence-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 6px 0;
+}
+
 .evidence-list strong,
 .evidence-list span,
 .evidence-list small {
@@ -1101,6 +1108,20 @@ button:disabled {
   margin-top: 4px;
   color: #6e6e73;
   font-size: 12px;
+}
+
+.evidence-meta small,
+.evidence-list li > small {
+  display: inline-flex;
+  width: fit-content;
+  max-width: 100%;
+  margin: 3px 6px 0 0;
+  border: 1px solid #e5e5ea;
+  border-radius: 6px;
+  padding: 3px 6px;
+  background: #ffffff;
+  color: #4f5662;
+  line-height: 1.35;
 }
 
 .evidence-list p {

@@ -78,7 +78,12 @@ class Embedder:
         if self.provider in {"hash", "local_hash", "deterministic"}:
             return [self._hash_embedding(text) for text in texts]
         if self.provider in {"azure", "azure_openai"}:
-            return self._embed_azure_openai(texts)
+            try:
+                return self._embed_azure_openai(texts)
+            except (EmbeddingConfigError, httpx.HTTPError, ValueError):
+                self.provider = "hash"
+                self.model_name = f"hash-fallback-{self.fallback_dim}"
+                return [self._hash_embedding(text) for text in texts]
         model = self._load_model()
         if model is not None:
             try:

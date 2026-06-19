@@ -12,7 +12,7 @@ from backend.app.utils.text import normalize_ws, unique_keep_order
 CLASS_RE = re.compile(r"\bclass\s+([A-Za-z_]\w*)")
 ANNOTATION_RE = re.compile(r"@([A-Za-z_]\w+)(?:\((.*?)\))?", re.DOTALL)
 METHOD_RE = re.compile(
-    r"(?:public|private|protected)\s+(?:static\s+)?[\w<>\[\], ?]+\s+([A-Za-z_]\w*)\s*\([^)]*\)\s*(?:throws\s+[^{]+)?\{",
+    r"(?:public|private|protected)\s+(?:static\s+)?[\w<>\[\], ?]+\s+([A-Za-z_]\w*)\s*\(([^)]*)\)\s*(?:throws\s+[^{]+)?\{",
     re.DOTALL,
 )
 CALL_RE = re.compile(r"\b([a-z][A-Za-z0-9_]*)\.([A-Za-z_]\w*)\s*\(")
@@ -22,6 +22,23 @@ STRING_RE = re.compile(r'"([^"]+)"')
 ROLE_RE = re.compile(r"(?:hasRole|hasAuthority|hasPermission)\s*\(\s*\"([A-Z0-9_:.-]+)\"")
 MAPPER_RE = re.compile(r"\b([a-z][A-Za-z0-9_]*Mapper)\.([A-Za-z_]\w*)\s*\(")
 SERVICE_RE = re.compile(r"\b([a-z][A-Za-z0-9_]*Service)\.([A-Za-z_]\w*)\s*\(")
+GETTER_FIELD_RE = re.compile(r"\b([a-z][A-Za-z0-9_]*)\.(?:get|is)([A-Z][A-Za-z0-9_]*)\s*\(")
+
+BUSINESS_NAME_BY_METHOD = {
+    "releaseDormant": "휴면계좌 해제",
+    "changeTransferLimit": "이체한도 변경",
+    "reissueCard": "카드 재발급",
+    "extendLoan": "대출 만기연장",
+    "redeemFund": "펀드 환매",
+    "requestForeignRemittance": "해외송금 신청",
+    "approveCashWithdrawal": "고액현금 인출 승인",
+    "registerAutoDebit": "자동이체 등록",
+    "addCorporateUser": "기업뱅킹 사용자 등록",
+    "issueBalanceCertificate": "잔액증명서 발급",
+    "saveCustomer": "고객 저장",
+    "executeTransfer": "계좌이체 실행",
+    "approveSlip": "전표 승인",
+}
 
 
 def _line_no(text: str, offset: int) -> int:
@@ -92,13 +109,20 @@ def _join_paths(prefix: Optional[str], path: Optional[str]) -> Optional[str]:
     return joined if joined.startswith("/") else f"/{joined}"
 
 
-def _iter_methods(text: str) -> Iterable[Tuple[str, str, int, int, str]]:
+def _iter_methods(text: str) -> Iterable[Tuple[str, str, int, int, str, str]]:
     for match in METHOD_RE.finditer(text):
         start = match.start()
         annotation_block = _annotation_block_before(text, start)
         open_index = text.find("{", match.start())
         close_index = _find_matching_brace(text, open_index)
-        yield match.group(1), text[match.start() : close_index + 1], match.start(), close_index, annotation_block
+        yield (
+            match.group(1),
+            text[match.start() : close_index + 1],
+            match.start(),
+            close_index,
+            annotation_block,
+            match.group(2),
+        )
 
 
 def _annotation_block_before(text: str, start: int) -> str:
@@ -127,6 +151,71 @@ def _extract_throw_messages(body: str) -> List[Dict[str, str]]:
                 }
             )
     return errors
+
+
+def _extract_params(params: str) -> List[Dict[str, str]]:
+    extracted: List[Dict[str, str]] = []
+    for raw in params.split(","):
+        cleaned = normalize_ws(raw.replace("@RequestBody", "").replace("final ", ""))
+        if not cleaned:
+            continue
+        parts = cleaned.split()
+        if len(parts) < 2:
+            continue
+        extracted.append({"type": parts[-2], "name": parts[-1]})
+    return extracted
+
+
+def _dto_names(params: List[Dict[str, str]]) -> List[str]:
+    ignored = {"String", "Long", "Integer", "int", "long", "boolean", "Boolean", "User"}
+    names = []
+    for param in params:
+        param_type = param["type"].replace("[]", "")
+        if param_type in ignored:
+            continue
+        if param_type.endswith(("Request", "Dto", "DTO")) or "Request" in param_type:
+            names.append(param_type)
+    return unique_keep_order(names)
+
+
+def _dto_fields(body: str, params: List[Dict[str, str]]) -> List[str]:
+    dto_param_names = {param["name"] for param in params if param["type"] in _dto_names([param])}
+    dto_param_names.add("request")
+    fields = []
+    for owner, field_name in GETTER_FIELD_RE.findall(body):
+        if owner in dto_param_names:
+            fields.append(_lower_first(field_name))
+    return unique_keep_order(fields)
+
+
+def _lower_first(value: str) -> str:
+    return value[:1].lower() + value[1:] if value else value
+
+
+def _business_name(method_name: str, class_name: str) -> str:
+    if method_name in BUSINESS_NAME_BY_METHOD:
+        return BUSINESS_NAME_BY_METHOD[method_name]
+    normalized = re.sub(r"([a-z])([A-Z])", r"\1 \2", method_name).strip()
+    return normalized or class_name
+
+
+def _api_description(
+    class_name: str,
+    method_name: str,
+    api_path: Optional[str],
+    http_method: Optional[str],
+    dto_names: List[str],
+    service_calls: List[str],
+    mapper_calls: List[str],
+    is_controller: bool,
+) -> str:
+    business_name = _business_name(method_name, class_name)
+    dto_text = f" 입력 DTO {', '.join(dto_names)}를 받아" if dto_names else ""
+    if is_controller or api_path:
+        target = f" {', '.join(service_calls)}로 전달" if service_calls else " 업무 로직으로 전달"
+        return f"{http_method or 'HTTP'} {api_path or ''} 요청은 {business_name} 업무를 처리하며{dto_text}{target}한다."
+    mapper_text = f" 이후 {', '.join(mapper_calls)}를 호출" if mapper_calls else ""
+    return f"{class_name}.{method_name}는 {business_name} 업무 로직으로 권한, 입력값, 상태값을 검증하고{dto_text}{mapper_text}한다."
 
 
 def _business_rules(conditions: List[str], roles: List[str], errors: List[Dict[str, str]]) -> List[str]:
@@ -203,7 +292,7 @@ class JavaParser(BaseParser):
         is_service = "Service" in class_annotations or class_name.endswith("Service")
         docs: List[KnowledgeDocument] = []
 
-        for method_name, body, start, end, annotation_block in _iter_methods(text):
+        for method_name, body, start, end, annotation_block, params_text in _iter_methods(text):
             annotations = _extract_annotations(annotation_block)
             mapping_name = next((name for name in annotations if name.endswith("Mapping")), None)
             api_path = None
@@ -220,21 +309,42 @@ class JavaParser(BaseParser):
             conditions = unique_keep_order(match.group(1).strip() for match in IF_RE.finditer(body))
             errors = _extract_throw_messages(body)
             roles = unique_keep_order(ROLE_RE.findall(body))
+            params = _extract_params(params_text)
+            dto_names = _dto_names(params)
+            dto_fields = _dto_fields(body, params)
             doc_type = "backend_controller" if is_controller or api_path else "backend_service"
             if conditions or errors:
                 doc_type = "business_logic" if is_service else doc_type
-            summary = _summary(class_name, method_name, api_path, calls, conditions, errors)
+            summary = _summary(class_name, method_name, api_path, calls, conditions, errors, dto_names)
             possible_errors = _possible_errors(conditions, roles, errors)
+            api_description = _api_description(
+                class_name,
+                method_name,
+                api_path,
+                http_method,
+                dto_names,
+                service_calls,
+                mapper_calls,
+                is_controller,
+            )
             docs.append(
                 KnowledgeDocument(
                     doc_type=doc_type,
                     title=f"{class_name}.{method_name}",
+                    business_name=_business_name(method_name, class_name),
                     summary=summary,
                     source_path=str(source.path),
                     api_path=api_path,
                     http_method=http_method,
+                    api_description=api_description,
                     class_name=class_name,
                     method_name=method_name,
+                    dto_names=dto_names,
+                    dto_fields=dto_fields,
+                    validation_conditions=conditions,
+                    exception_types=[error["exception_type"] for error in errors],
+                    auth_codes=roles,
+                    call_chain=calls,
                     error_codes=[error.get("error_code", "") for error in errors if error.get("error_code")],
                     error_messages=[error["message"] for error in errors],
                     business_rules=_business_rules(conditions, roles, errors),
@@ -250,6 +360,10 @@ class JavaParser(BaseParser):
                         "mapper_calls": mapper_calls,
                         "service_calls": service_calls,
                         "if_conditions": conditions,
+                        "method_params": params,
+                        "dto_names": dto_names,
+                        "dto_fields": dto_fields,
+                        "exceptions": errors,
                         "auth_codes": roles,
                     },
                 )
@@ -264,10 +378,13 @@ def _summary(
     calls: List[str],
     conditions: List[str],
     errors: List[Dict[str, str]],
+    dto_names: List[str],
 ) -> str:
     parts = [f"{class_name}.{method_name} 처리 로직"]
     if api_path:
         parts.append(f"{api_path} 요청을 처리한다")
+    if dto_names:
+        parts.append("DTO: " + ", ".join(dto_names))
     if calls:
         parts.append("호출: " + ", ".join(calls))
     if conditions:

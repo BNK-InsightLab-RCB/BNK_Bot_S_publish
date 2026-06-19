@@ -16,7 +16,11 @@ def test_frontend_parser_extracts_screen_button_and_api():
 
     assert screen.screen_id == "CUST_001"
     assert screen.screen_name == "고객조회"
+    assert screen.business_name == "고객조회"
+    assert screen.input_fields
     assert save.api_path == "/api/customer/save"
     assert save.http_method == "POST"
+    assert save.api_description
+    assert save.validation_conditions
     assert "고객번호를 입력하세요." in save.error_messages
     assert save.metadata["button_name"] == "저장"

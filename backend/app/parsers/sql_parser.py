@@ -117,10 +117,14 @@ class SqlParser(BaseParser):
                 KnowledgeDocument(
                     doc_type="sql_mapper",
                     title=title,
+                    business_name=Path(source.path).stem,
                     summary=summary,
                     source_path=str(source.path),
                     tables=tables,
                     columns=analysis["columns"],
+                    dto_fields=analysis["parameters"],
+                    validation_conditions=analysis["where_conditions"],
+                    call_chain=[title],
                     business_rules=[
                         f"WHERE 조건: {condition}" for condition in analysis["where_conditions"]
                     ],

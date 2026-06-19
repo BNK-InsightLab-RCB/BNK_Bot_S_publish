@@ -202,19 +202,34 @@ def sanitize_source(doc: KnowledgeDocument, user_role: str) -> Dict[str, object]
     data = {
         "doc_id": doc.id,
         "title": _safe_title(doc, user_role),
+        "business_name": doc.business_name or doc.screen_name or "",
+        "screen_id": doc.screen_id if user_role in {"it", "admin"} else "",
+        "screen_name": doc.screen_name or "",
         "source_path": doc.source_path if user_role in {"it", "admin"} else "",
         "line_range": f"{doc.start_line}-{doc.end_line}",
         "reason": _safe_reason(doc, user_role),
+        "error_codes": doc.error_codes if user_role in {"it", "admin"} else [],
+        "error_messages": doc.error_messages,
+        "input_fields": doc.input_fields,
         "retrieval_backend": doc.metadata.get("retrieval_backend"),
     }
     if user_role in {"it", "admin"}:
         data.update(
             {
                 "api_path": doc.api_path,
+                "http_method": doc.http_method,
+                "api_description": doc.api_description,
                 "class_name": doc.class_name,
                 "method_name": doc.method_name,
                 "sql_id": doc.sql_id,
                 "tables": doc.tables,
+                "columns": doc.columns,
+                "dto_names": doc.dto_names,
+                "dto_fields": doc.dto_fields,
+                "validation_conditions": doc.validation_conditions,
+                "exception_types": doc.exception_types,
+                "auth_codes": doc.auth_codes,
+                "call_chain": doc.call_chain,
             }
         )
     return data
@@ -234,7 +249,14 @@ def _safe_title(doc: KnowledgeDocument, user_role: str) -> str:
 
 def _safe_reason(doc: KnowledgeDocument, user_role: str) -> str:
     if user_role in {"it", "admin"}:
-        return sanitize_answer(doc.summary, user_role)
+        details = [doc.summary]
+        if doc.api_description:
+            details.append(f"API 역할: {doc.api_description}")
+        if doc.validation_conditions:
+            details.append("검증조건: " + "; ".join(doc.validation_conditions[:5]))
+        if doc.exception_types:
+            details.append("예외: " + ", ".join(doc.exception_types))
+        return sanitize_answer(" ".join(detail for detail in details if detail), user_role)
     if doc.doc_type == "frontend_event":
         messages = ", ".join(doc.error_messages)
         return (

@@ -38,6 +38,7 @@ class TableDocParser(BaseParser):
         return KnowledgeDocument(
             doc_type="table_definition",
             title=f"{table_name} table definition",
+            business_name=heading,
             summary=f"{table_name} 테이블 정의서",
             source_path=str(source.path),
             tables=[table_name],
@@ -55,6 +56,7 @@ class TableDocParser(BaseParser):
         return KnowledgeDocument(
             doc_type="table_definition",
             title=f"{table_name} table definition",
+            business_name=source.path.stem,
             summary=f"{table_name} 테이블 정의서",
             source_path=str(source.path),
             tables=[table_name],
@@ -75,6 +77,7 @@ class TableDocParser(BaseParser):
         return KnowledgeDocument(
             doc_type="table_definition",
             title=f"{table_name} table definition",
+            business_name=source.path.stem,
             summary=f"{table_name} 테이블 정의서",
             source_path=str(source.path),
             tables=[table_name],
@@ -88,10 +91,12 @@ class TableDocParser(BaseParser):
         return KnowledgeDocument(
             doc_type="incident",
             title=heading,
+            business_name="고객조회" if "고객조회" in source.text else heading,
             summary=normalize_ws(" ".join(line.strip("#- ") for line in lines if line.strip()))[:500],
             source_path=str(source.path),
             screen_name="고객조회" if "고객조회" in source.text else None,
             error_messages=messages,
+            exception_types=["incident"],
             business_rules=["과거 동일 오류 이력이 있으면 권한과 고객 상태를 우선 확인한다."],
             branch_guide="동일 권한 오류가 반복되면 권한 보유 여부와 발생 시각을 IT부서에 전달해야 합니다.",
             it_guide="과거 고객 저장 권한 오류 이력",

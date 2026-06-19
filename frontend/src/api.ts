@@ -14,14 +14,29 @@ export interface AuthUser {
 export interface SourceCitation {
   doc_id: string;
   title: string;
+  business_name?: string;
+  screen_id?: string;
+  screen_name?: string;
   source_path?: string;
   line_range: string;
   reason: string;
   api_path?: string | null;
+  http_method?: string | null;
+  api_description?: string | null;
   class_name?: string | null;
   method_name?: string | null;
   sql_id?: string | null;
   tables?: string[];
+  columns?: string[];
+  dto_names?: string[];
+  dto_fields?: string[];
+  input_fields?: string[];
+  validation_conditions?: string[];
+  exception_types?: string[];
+  auth_codes?: string[];
+  call_chain?: string[];
+  error_codes?: string[];
+  error_messages?: string[];
   retrieval_backend?: string | null;
 }
 
@@ -42,6 +57,10 @@ export interface HealthResponse {
   status: string;
   index_name: string;
   rag_provider: string;
+  azure_search_configured?: boolean;
+  foundry_configured?: boolean;
+  foundry_search_tool_configured?: boolean;
+  ms_route?: string;
 }
 
 export interface RuntimeLog {

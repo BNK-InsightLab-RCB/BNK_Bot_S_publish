@@ -110,6 +110,9 @@ class AnswerGenerator:
             answer.extend(
                 [
                     f"- API: {it.get('api_path') or '-'}",
+                    f"- DTO: {', '.join(it.get('dto_names', [])) or '-'}",
+                    f"- 오류코드: {', '.join(it.get('error_codes', [])) or '-'}",
+                    f"- Exception: {', '.join(it.get('exception_types', [])) or '-'}",
                     f"- Service: {it.get('service') or '-'}",
                     f"- SQL: {', '.join(it.get('sql_ids', [])) or '-'}",
                     f"- Table: {', '.join(it.get('tables', [])) or '-'}",
@@ -217,10 +220,17 @@ def _it_summary_payload(docs: List[KnowledgeDocument]) -> Dict[str, object]:
     return {
         "screen_id": _first(doc.screen_id for doc in docs),
         "api_path": _first(doc.api_path for doc in docs),
+        "api_description": _first(doc.api_description for doc in docs),
+        "dto_names": unique_keep_order(name for doc in docs for name in doc.dto_names),
+        "dto_fields": unique_keep_order(field for doc in docs for field in doc.dto_fields),
+        "error_codes": unique_keep_order(code for doc in docs for code in doc.error_codes),
+        "exception_types": unique_keep_order(name for doc in docs for name in doc.exception_types),
+        "auth_codes": unique_keep_order(code for doc in docs for code in doc.auth_codes),
         "controller": _first(doc.title for doc in docs if doc.doc_type == "backend_controller"),
         "service": _first(doc.title for doc in docs if doc.doc_type == "business_logic"),
         "sql_ids": unique_keep_order(doc.sql_id or "" for doc in docs),
         "tables": unique_keep_order(table for doc in docs for table in doc.tables),
+        "columns": unique_keep_order(column for doc in docs for column in doc.columns),
     }
 
 

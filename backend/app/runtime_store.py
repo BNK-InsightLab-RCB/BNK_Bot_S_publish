@@ -203,14 +203,31 @@ def _safe_sources(value: object) -> List[dict]:
                 {
                     "doc_id": str(item.get("doc_id") or ""),
                     "title": str(item.get("title") or ""),
+                    "business_name": str(item.get("business_name") or ""),
+                    "screen_id": str(item.get("screen_id") or ""),
+                    "screen_name": str(item.get("screen_name") or ""),
                     "source_path": str(item.get("source_path") or ""),
                     "line_range": str(item.get("line_range") or ""),
                     "reason": str(item.get("reason") or ""),
                     "api_path": item.get("api_path"),
+                    "http_method": item.get("http_method"),
+                    "api_description": item.get("api_description"),
                     "class_name": item.get("class_name"),
                     "method_name": item.get("method_name"),
                     "sql_id": item.get("sql_id"),
                     "tables": item.get("tables") if isinstance(item.get("tables"), list) else [],
+                    "columns": item.get("columns") if isinstance(item.get("columns"), list) else [],
+                    "dto_names": item.get("dto_names") if isinstance(item.get("dto_names"), list) else [],
+                    "dto_fields": item.get("dto_fields") if isinstance(item.get("dto_fields"), list) else [],
+                    "input_fields": item.get("input_fields") if isinstance(item.get("input_fields"), list) else [],
+                    "validation_conditions": item.get("validation_conditions")
+                    if isinstance(item.get("validation_conditions"), list)
+                    else [],
+                    "exception_types": item.get("exception_types") if isinstance(item.get("exception_types"), list) else [],
+                    "auth_codes": item.get("auth_codes") if isinstance(item.get("auth_codes"), list) else [],
+                    "call_chain": item.get("call_chain") if isinstance(item.get("call_chain"), list) else [],
+                    "error_codes": item.get("error_codes") if isinstance(item.get("error_codes"), list) else [],
+                    "error_messages": item.get("error_messages") if isinstance(item.get("error_messages"), list) else [],
                     "retrieval_backend": item.get("retrieval_backend"),
                 }
             )

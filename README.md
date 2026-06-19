@@ -42,6 +42,29 @@ The Azure path follows the workshop flow in
 keyword search, vector search, hybrid search, score tuning, semantic reranking,
 and Foundry IQ/agentic retrieval over the same source-aware index.
 
+## Source Knowledge JSON
+
+The ingestion pipeline stores the same source-derived JSON in the local
+`data/ops_knowledge.json` checkpoint and, when enabled, in Azure AI Search. Each
+chunk stays close to one screen event, backend method, mapper SQL, table
+definition, or incident note so the LLM gets a compact but actionable evidence
+unit.
+
+Core fields extracted from source code:
+
+- `business_name`: 업무명 inferred from screen name or backend method.
+- `screen_id`, `screen_name`, `screen_info`: screen number/name, menu id, input fields, and button context.
+- `api_path`, `http_method`, `api_description`: API endpoint and what business action it performs.
+- `dto_names`, `dto_fields`, `input_fields`: request DTOs, request getter fields, and branch-facing screen inputs.
+- `validation_conditions`, `auth_codes`: if-condition checks and role/authority codes.
+- `error_codes`, `error_messages`, `exception_types`: business error codes, user-visible messages, and thrown exception classes.
+- `call_chain`: frontend API call, controller/service method, mapper SQL, and related SQL ids where linked.
+- `tables`, `columns`, `sql_id`: data objects used by mapper SQL or table definition files.
+- `branch_guide`, `it_guide`, `business_rules`: role-aware explanation snippets used for answer generation.
+
+Branch users see only business-safe citations. IT/admin users can see API,
+DTO, exception, SQL, table, and file-line evidence.
+
 ## Setup
 
 ```bash

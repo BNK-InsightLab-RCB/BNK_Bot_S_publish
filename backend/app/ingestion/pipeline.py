@@ -83,10 +83,25 @@ class IngestionPipeline:
         return docs
 
     def _link_documents(self, docs: List[KnowledgeDocument]) -> List[KnowledgeDocument]:
+        frontend_by_api = {
+            doc.api_path: doc
+            for doc in docs
+            if doc.doc_type == "frontend_event" and doc.api_path
+        }
         api_to_controller = {
             doc.api_path: doc
             for doc in docs
             if doc.doc_type == "backend_controller" and doc.api_path
+        }
+        controller_by_method = {
+            doc.method_name: doc
+            for doc in docs
+            if doc.doc_type == "backend_controller" and doc.method_name
+        }
+        service_by_method = {
+            doc.method_name: doc
+            for doc in docs
+            if doc.doc_type == "business_logic" and doc.method_name
         }
         mapper_by_method = {
             (doc.sql_id or "").split(".")[-1]: doc for doc in docs if doc.doc_type == "sql_mapper" and doc.sql_id
@@ -95,6 +110,23 @@ class IngestionPipeline:
             if doc.doc_type == "frontend_event" and doc.api_path in api_to_controller:
                 controller = api_to_controller[doc.api_path]
                 doc.metadata["controller"] = controller.title
+                doc.call_chain = _unique(doc.call_chain + [controller.title])
+            if doc.doc_type == "backend_controller" and doc.api_path in frontend_by_api:
+                frontend = frontend_by_api[doc.api_path]
+                _inherit_business_context(doc, frontend)
+                service = service_by_method.get(doc.method_name or "")
+                if service:
+                    doc.metadata["service"] = service.title
+                    doc.call_chain = _unique(doc.call_chain + [service.title])
+            if doc.doc_type == "business_logic":
+                controller = controller_by_method.get(doc.method_name or "")
+                frontend = frontend_by_api.get(controller.api_path) if controller and controller.api_path else None
+                if controller:
+                    _inherit_business_context(doc, controller)
+                    doc.call_chain = _unique([controller.title] + doc.call_chain)
+                if frontend:
+                    _inherit_business_context(doc, frontend)
+                    doc.call_chain = _unique([frontend.title] + doc.call_chain)
             if doc.doc_type == "business_logic":
                 related_sql_ids = []
                 related_tables = []
@@ -104,9 +136,29 @@ class IngestionPipeline:
                     if mapper_doc:
                         related_sql_ids.append(mapper_doc.sql_id)
                         related_tables.extend(mapper_doc.tables)
+                        _inherit_business_context(mapper_doc, doc)
+                        mapper_doc.call_chain = _unique([doc.title] + mapper_doc.call_chain)
                 doc.metadata["related_sql_ids"] = [value for value in related_sql_ids if value]
                 doc.tables = list(dict.fromkeys(doc.tables + related_tables))
+                doc.call_chain = _unique(doc.call_chain + [value for value in related_sql_ids if value])
         return docs
+
+
+def _inherit_business_context(target: KnowledgeDocument, source: KnowledgeDocument) -> None:
+    """Copy screen/API business anchors across related source chunks."""
+    target.business_name = target.business_name or source.business_name or source.screen_name
+    target.screen_id = target.screen_id or source.screen_id
+    target.screen_name = target.screen_name or source.screen_name
+    target.menu_id = target.menu_id or source.menu_id
+    target.menu_name = target.menu_name or source.menu_name
+    target.screen_info = target.screen_info or dict(source.screen_info)
+    target.api_path = target.api_path or source.api_path
+    target.http_method = target.http_method or source.http_method
+    target.input_fields = _unique(target.input_fields + source.input_fields)
+
+
+def _unique(values: List[str]) -> List[str]:
+    return list(dict.fromkeys(value for value in values if value))
 
 
 def main() -> None:

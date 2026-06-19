@@ -173,3 +173,7 @@ class HealthResponse(BaseModel):
     status: str
     index_name: str
     rag_provider: str = "local"
+    azure_search_configured: bool = False
+    foundry_configured: bool = False
+    foundry_search_tool_configured: bool = False
+    ms_route: str = "local"

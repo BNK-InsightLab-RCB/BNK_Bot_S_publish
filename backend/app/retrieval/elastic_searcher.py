@@ -122,7 +122,17 @@ class HybridSearcher:
                 {
                     "multi_match": {
                         "query": intent.action,
-                        "fields": ["summary^3", "business_rules^2", "branch_guide", "it_guide"],
+                        "fields": [
+                            "business_name^4",
+                            "summary^3",
+                            "api_description^3",
+                            "input_fields^2",
+                            "dto_fields^2",
+                            "validation_conditions^2",
+                            "business_rules^2",
+                            "branch_guide",
+                            "it_guide",
+                        ],
                     }
                 }
             )
@@ -131,7 +141,15 @@ class HybridSearcher:
                 {
                     "multi_match": {
                         "query": intent.error_message,
-                        "fields": ["error_messages^4", "possible_errors^3", "business_rules^2", "summary"],
+                        "fields": [
+                            "error_messages^4",
+                            "error_codes^3",
+                            "exception_types^2",
+                            "possible_errors^3",
+                            "validation_conditions^2",
+                            "business_rules^2",
+                            "summary",
+                        ],
                     }
                 }
             )
@@ -376,9 +394,16 @@ def _terms(text: str) -> List[str]:
 def _bm25_fields() -> List[str]:
     return [
         "title^4",
+        "business_name^4",
         "screen_name^4",
+        "api_description^3",
         "error_messages^4",
+        "error_codes^3",
         "summary^3",
+        "input_fields^3",
+        "dto_fields^2",
+        "validation_conditions^2",
+        "call_chain^2",
         "business_rules^3",
         "possible_errors^3",
         "branch_guide^2",

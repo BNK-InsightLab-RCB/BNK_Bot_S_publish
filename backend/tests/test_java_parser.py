@@ -16,6 +16,8 @@ def test_java_parser_extracts_controller_mapping():
     assert save.doc_type == "backend_controller"
     assert save.api_path == "/api/customer/save"
     assert save.http_method == "POST"
+    assert "CustomerDto" in save.dto_names
+    assert save.api_description
     assert "customerService.saveCustomer" in save.metadata["called_methods"]
 
 
@@ -26,5 +28,8 @@ def test_java_parser_extracts_business_rules_and_mapper_calls():
     assert save.doc_type == "business_logic"
     assert "저장 권한이 없습니다." in save.error_messages
     assert "해지 고객은 수정할 수 없습니다." in save.error_messages
+    assert "BizException" in save.exception_types
+    assert "CUSTOMER_SAVE" in save.auth_codes
+    assert "customerNo" in save.dto_fields
     assert "CustomerMapper.updateCustomer" in save.metadata["mapper_calls"]
     assert any("CUSTOMER_SAVE" in rule for rule in save.business_rules)

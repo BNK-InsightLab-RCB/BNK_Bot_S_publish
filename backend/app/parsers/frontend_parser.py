@@ -25,6 +25,12 @@ BUTTON_RE = re.compile(
     r"<button[^>]*(?:@click|v-on:click|onClick)\s*=\s*['\"]([^'\"]+)['\"][^>]*>(.*?)</button>",
     re.IGNORECASE | re.DOTALL,
 )
+LABEL_INPUT_RE = re.compile(
+    r"<label[^>]*>(?P<label>.*?)<input[^>]*(?:v-model(?:\.[\w.]+)?|name)\s*=\s*['\"](?P<field>[^'\"]+)['\"][^>]*>",
+    re.IGNORECASE | re.DOTALL,
+)
+V_MODEL_RE = re.compile(r"v-model(?:\.[\w.]+)?\s*=\s*['\"]([^'\"]+)['\"]", re.IGNORECASE)
+FORM_FIELD_RE = re.compile(r"\bform\.([A-Za-z_][\w]*)")
 
 
 def _line_no(text: str, offset: int) -> int:
@@ -114,6 +120,32 @@ def _extract_buttons(text: str) -> Dict[str, str]:
     return buttons
 
 
+def _extract_input_fields(text: str) -> List[str]:
+    fields: List[str] = []
+    for match in LABEL_INPUT_RE.finditer(text):
+        label = normalize_ws(re.sub(r"<[^>]+>", "", match.group("label")))
+        field = match.group("field").strip()
+        if label and field:
+            fields.append(f"{label}({field})")
+        elif field:
+            fields.append(field)
+    for field in V_MODEL_RE.findall(text):
+        fields.append(field.strip())
+    return unique_keep_order(fields)
+
+
+def _extract_form_fields(body: str) -> List[str]:
+    return unique_keep_order(FORM_FIELD_RE.findall(body))
+
+
+def _api_description(function_name: str, button_name: Optional[str], api_calls: List[Dict[str, str]]) -> str:
+    action = f"{button_name} 버튼" if button_name else f"{function_name} 이벤트"
+    if not api_calls:
+        return f"{action}에서 화면 입력값을 검증한다."
+    calls = ", ".join(f"{call['http_method']} {call['api_path']}" for call in api_calls)
+    return f"{action}에서 화면 입력값을 검증한 뒤 {calls} 업무 API를 호출한다."
+
+
 class FrontendParser(BaseParser):
     """Extract screen metadata, button events, API calls, and user messages."""
 
@@ -125,6 +157,7 @@ class FrontendParser(BaseParser):
         menu_id = _first(MENU_ID_RE.findall(text))
         screen_name = _first(SCREEN_NAME_RE.findall(text)) or _extract_heading(text)
         buttons = _extract_buttons(text)
+        input_fields = _extract_input_fields(text)
         docs: List[KnowledgeDocument] = []
 
         if screen_id or screen_name or menu_id:
@@ -132,11 +165,20 @@ class FrontendParser(BaseParser):
                 KnowledgeDocument(
                     doc_type="frontend_screen",
                     title=screen_name or source.path.stem,
+                    business_name=screen_name or source.path.stem,
                     summary=f"{screen_name or source.path.stem} 화면 정의",
                     source_path=str(source.path),
                     screen_id=screen_id,
                     screen_name=screen_name,
+                    screen_info={
+                        "screen_id": screen_id,
+                        "screen_name": screen_name,
+                        "menu_id": menu_id,
+                        "input_fields": input_fields,
+                        "buttons": list(buttons.values()),
+                    },
                     menu_id=menu_id,
+                    input_fields=input_fields,
                     code_text=text[:4000],
                     end_line=max(1, text.count("\n") + 1),
                 )
@@ -150,6 +192,10 @@ class FrontendParser(BaseParser):
                 continue
             button_name = buttons.get(function_name)
             validation_rules = _validation_rules(conditions, messages)
+            form_fields = _extract_form_fields(body)
+            event_input_fields = [
+                field for field in input_fields if not form_fields or any(name in field for name in form_fields)
+            ]
             summary_parts = []
             if button_name:
                 summary_parts.append(f"{button_name} 버튼 처리")
@@ -164,14 +210,28 @@ class FrontendParser(BaseParser):
                 KnowledgeDocument(
                     doc_type="frontend_event",
                     title=f"{source.path.name} > {function_name}",
+                    business_name=screen_name or source.path.stem,
                     summary="; ".join(summary_parts) or f"{function_name} 이벤트 처리",
                     source_path=str(source.path),
                     screen_id=screen_id,
                     screen_name=screen_name,
+                    screen_info={
+                        "screen_id": screen_id,
+                        "screen_name": screen_name,
+                        "menu_id": menu_id,
+                        "button_name": button_name,
+                        "input_fields": event_input_fields,
+                    },
                     menu_id=menu_id,
                     api_path=api_calls[0]["api_path"] if api_calls else None,
                     http_method=api_calls[0]["http_method"] if api_calls else None,
+                    api_description=_api_description(function_name, button_name, api_calls),
                     method_name=function_name,
+                    input_fields=event_input_fields,
+                    dto_names=["form"] if api_calls and form_fields else [],
+                    dto_fields=form_fields,
+                    validation_conditions=conditions,
+                    call_chain=[f"{call['http_method']} {call['api_path']}" for call in api_calls],
                     error_messages=messages,
                     business_rules=validation_rules,
                     branch_guide=_branch_guide(messages),

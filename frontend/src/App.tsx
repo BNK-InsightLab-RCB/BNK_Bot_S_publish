@@ -446,7 +446,7 @@ function WorkspaceHeader({
         </span>
         <StatusPill online={backendOnline} label={backendOnline ? "Backend online" : "Backend offline"} />
         <span className="status-pill">{health?.rag_provider ?? "multi_agent"}</span>
-        <span className="status-pill">{String(response?.metadata?.answer_backend ?? "standby")}</span>
+        <span className="status-pill">{routeStatusLabel(response, health)}</span>
         <button className="icon-button" type="button" onClick={onLogout} title="로그아웃">
           <LogOut size={18} aria-hidden="true" />
         </button>
@@ -632,10 +632,12 @@ function AdminWorkspace({
 
 function QuestionGuide() {
   const examples = [
-    "화면명: 자동이체 등록",
-    "오류 문구: 출금계좌 사용 불가",
-    "입력 상황: 납부자번호와 출금일 입력 완료",
-    "시도한 작업: 등록 버튼 클릭",
+    "업무명/화면명: 자동이체 등록, 카드 재발급처럼 실제 화면 이름",
+    "오류 문구: 화면에 나온 문장을 줄이지 말고 그대로",
+    "수행 작업: 조회, 등록, 승인, 발급 등 누른 버튼과 직전 단계",
+    "입력 상황: 전체 계좌번호 대신 뒤 4자리, 납부자번호/전표번호 등은 필요한 범위만",
+    "발생 범위: 특정 고객만, 특정 계좌만, 모든 직원 공통인지",
+    "재시도 결과: 새로고침, 재로그인, 다른 정상 건 비교 여부",
   ];
   return (
     <section className="panel question-guide">
@@ -649,7 +651,7 @@ function QuestionGuide() {
         ))}
       </ol>
       <div className="guide-note">
-        업무 화면, 오류 문구, 입력 상태, 다시 시도한 내용을 함께 적어주세요.
+        주민번호, 전체 계좌번호, 비밀번호, 인증번호는 입력하지 마세요.
       </div>
     </section>
   );
@@ -852,12 +854,42 @@ function EvidenceList({ sources }: { sources: SourceCitation[] }) {
           {sources.slice(0, 8).map((source, index) => (
             <li key={`${source.doc_id}-${index}`}>
               <strong>{source.title}</strong>
+              <div className="evidence-meta">
+                {source.business_name && <small>업무명 {source.business_name}</small>}
+                {source.screen_id && <small>화면번호 {source.screen_id}</small>}
+                {source.screen_name && <small>화면 {source.screen_name}</small>}
+                {source.error_codes && source.error_codes.length > 0 && (
+                  <small>error {source.error_codes.join(", ")}</small>
+                )}
+                {source.exception_types && source.exception_types.length > 0 && (
+                  <small>exception {source.exception_types.join(", ")}</small>
+                )}
+              </div>
               {source.source_path && (
                 <span>
                   {source.source_path}:{source.line_range}
                 </span>
               )}
               <p>{source.reason}</p>
+              {source.api_path && (
+                <small>
+                  API {source.http_method ? `${source.http_method} ` : ""}
+                  {source.api_path}
+                  {source.api_description ? ` · ${source.api_description}` : ""}
+                </small>
+              )}
+              {source.dto_names && source.dto_names.length > 0 && (
+                <small>DTO {source.dto_names.join(", ")}</small>
+              )}
+              {source.dto_fields && source.dto_fields.length > 0 && (
+                <small>DTO fields {source.dto_fields.slice(0, 8).join(", ")}</small>
+              )}
+              {source.input_fields && source.input_fields.length > 0 && (
+                <small>입력 {source.input_fields.slice(0, 6).join(", ")}</small>
+              )}
+              {source.validation_conditions && source.validation_conditions.length > 0 && (
+                <small>검증 {source.validation_conditions.slice(0, 3).join(" / ")}</small>
+              )}
               {source.tables && source.tables.length > 0 && <small>{source.tables.join(", ")}</small>}
               {source.retrieval_backend && <small>{source.retrieval_backend}</small>}
             </li>
@@ -957,6 +989,16 @@ function routeSummary(response: ChatResponse | null, health: HealthResponse | nu
       ? "Microsoft Foundry와 Azure AI Search 경로"
       : "로컬 Qwen 또는 Docker Elasticsearch 경로",
   };
+}
+
+function routeStatusLabel(response: ChatResponse | null, health: HealthResponse | null) {
+  const answerBackend = String(response?.metadata?.answer_backend ?? "");
+  if (answerBackend === "foundry") return "MS Foundry connected";
+  if (answerBackend) return answerBackend;
+  if (health?.ms_route === "foundry_search_tool") return "Foundry Search ready";
+  if (health?.ms_route === "azure_search_then_foundry_context") return "Azure Search + Foundry ready";
+  if (health?.ms_route === "azure_search_local_answer") return "Azure Search ready";
+  return "standby";
 }
 
 function sourceBackends(response: ChatResponse | null): string[] {

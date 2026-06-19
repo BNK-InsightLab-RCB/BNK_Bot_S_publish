@@ -181,6 +181,8 @@ class SupervisorAgent:
         trace: AgentTrace,
     ):
         context_hint = ContextBuilder(max_chars=4000).build(docs[:6], user_role=user_role)
+        if not (settings.foundry_ai_search_connection_id or settings.foundry_agent_name):
+            trace.add("foundry_worker: Search tool connection not configured; using Azure Search context hint")
         trace.add("foundry_worker: calling Microsoft Foundry")
         foundry_response = self.foundry_client.answer(
             question=question,

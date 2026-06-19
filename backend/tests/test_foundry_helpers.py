@@ -73,6 +73,11 @@ def test_azure_search_schema_has_required_foundry_fields():
 
     assert "content" in field_names
     assert "source_url" in field_names
+    assert "business_name" in field_names
+    assert "api_description" in field_names
+    assert "dto_fields" in field_names
+    assert "validation_conditions" in field_names
+    assert "exception_types" in field_names
     assert "content_vector" in field_names
     vector_field = next(field for field in schema["fields"] if field["name"] == "content_vector")
     assert vector_field["dimensions"] == 384
@@ -104,7 +109,12 @@ def test_azure_search_hit_payload_converts_to_knowledge_document():
             "id": "doc-1",
             "doc_type": "frontend_event",
             "title": "AutoDebitRegister.vue > registerAutoDebit",
+            "business_name": "자동이체 등록",
             "screen_name": "자동이체 등록",
+            "api_description": "등록 버튼에서 자동이체 등록 API를 호출한다.",
+            "dto_fields": ["withdrawAccountNo", "payerNo"],
+            "validation_conditions": ["!form.withdrawAccountNo"],
+            "exception_types": ["BizException"],
             "error_messages": ["납부자번호 형식을 확인하세요."],
             "branch_guide": "납부자번호 형식을 먼저 확인해야 합니다.",
             "source_path": "backend/examples/bank_sample/frontend/ops_scenarios/AutoDebitRegister.vue",
@@ -116,6 +126,11 @@ def test_azure_search_hit_payload_converts_to_knowledge_document():
     assert hit.score == 3.2
     assert hit.reranker_score == 2.1
     assert hit.document.id == "doc-1"
+    assert hit.document.business_name == "자동이체 등록"
     assert hit.document.screen_name == "자동이체 등록"
+    assert hit.document.api_description == "등록 버튼에서 자동이체 등록 API를 호출한다."
+    assert hit.document.dto_fields == ["withdrawAccountNo", "payerNo"]
+    assert hit.document.validation_conditions == ["!form.withdrawAccountNo"]
+    assert hit.document.exception_types == ["BizException"]
     assert hit.document.error_messages == ["납부자번호 형식을 확인하세요."]
     assert hit.document.metadata["retrieval_backend"] == "azure_ai_search"
