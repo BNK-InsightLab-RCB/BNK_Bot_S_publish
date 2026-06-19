@@ -750,7 +750,7 @@ function ITTicketDetail({
         <h2>문의 상세</h2>
       </div>
       <TicketThread ticket={ticket} />
-      <EvidenceList sources={ticket?.sources ?? []} />
+      <EvidenceList key={ticket?.id ?? "empty-evidence"} sources={ticket?.sources ?? []} />
       <form className="reply-form" onSubmit={submitReply}>
         <textarea
           value={replyText}
@@ -854,6 +854,7 @@ function EvidenceList({ sources }: { sources: SourceCitation[] }) {
           {sources.slice(0, 8).map((source, index) => (
             <li key={`${source.doc_id}-${index}`}>
               <strong>{source.title}</strong>
+              <p>{source.api_description || source.reason}</p>
               <div className="evidence-meta">
                 {source.business_name && <small>업무명 {source.business_name}</small>}
                 {source.screen_id && <small>화면번호 {source.screen_id}</small>}
@@ -870,12 +871,10 @@ function EvidenceList({ sources }: { sources: SourceCitation[] }) {
                   {source.source_path}:{source.line_range}
                 </span>
               )}
-              <p>{source.reason}</p>
               {source.api_path && (
                 <small>
                   API {source.http_method ? `${source.http_method} ` : ""}
                   {source.api_path}
-                  {source.api_description ? ` · ${source.api_description}` : ""}
                 </small>
               )}
               {source.dto_names && source.dto_names.length > 0 && (
