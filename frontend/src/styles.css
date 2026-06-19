@@ -162,9 +162,6 @@ button:disabled {
 }
 
 .app-header {
-  position: sticky;
-  top: 0;
-  z-index: 20;
   max-width: 1720px;
   margin: 0 auto 18px;
   display: flex;
