@@ -77,9 +77,10 @@ class RuntimeStore:
             "retrieval_backend": str(payload.get("retrieval_backend") or ""),
             "confidence": payload.get("confidence", 0),
             "source_count": int(payload.get("source_count") or 0),
-            "sources": _safe_sources(payload.get("sources")),
+            "sources": _ticket_sources(payload),
             "replies": [],
         }
+        ticket["source_count"] = len(ticket["sources"])
         self._append(self.ticket_path, ticket)
         self._append(
             self.log_path,
@@ -232,3 +233,87 @@ def _safe_sources(value: object) -> List[dict]:
                 }
             )
     return sources
+
+
+def _ticket_sources(payload: Dict[str, object]) -> List[dict]:
+    """Prefer IT-visible technical citations for branch escalation tickets."""
+    fallback = _safe_sources(payload.get("sources"))
+    sender_role = str(payload.get("sender_role") or "branch")
+    if sender_role != "branch":
+        return fallback
+    has_chat_route = any(
+        str(payload.get(key) or "") for key in ("answer_backend", "rag_provider", "retrieval_backend")
+    )
+    if not has_chat_route:
+        return fallback
+    question = str(payload.get("question") or "")
+    summary = str(payload.get("summary") or "")
+    technical_sources = _retrieve_it_sources(question, summary, str(payload.get("screen_name") or ""))
+    return technical_sources or fallback
+
+
+def _retrieve_it_sources(question: str, summary: str, screen_name: str = "") -> List[dict]:
+    """Build technical source citations without making LLM calls."""
+    try:
+        from backend.app.rag.citation_builder import CitationBuilder
+        from backend.app.retrieval.graph_store import GraphExpander
+        from backend.app.retrieval.query_analyzer import QueryAnalyzer
+        from backend.app.storage.elastic import KnowledgeIndex
+    except Exception:
+        return []
+
+    query_text = "\n".join(part for part in [question, summary] if part)
+    if not query_text.strip():
+        return []
+    try:
+        intent = QueryAnalyzer().analyze(query_text, screen_name=screen_name or None)
+        index = KnowledgeIndex()
+        docs = index.load_documents()
+        ranked = sorted(
+            ((doc, _ticket_doc_score(doc, intent)) for doc in docs),
+            key=lambda pair: pair[1],
+            reverse=True,
+        )
+        seed_docs = [doc for doc, score in ranked if score > 0][:8]
+        if not seed_docs:
+            return []
+        expanded = GraphExpander().expand(seed_docs, docs)
+        technical_docs = [
+            doc
+            for doc in expanded
+            if doc.source_path or doc.api_path or doc.sql_id or doc.tables or doc.dto_names
+        ][:8]
+        return CitationBuilder().build(technical_docs, "it")
+    except Exception:
+        return []
+
+
+def _ticket_doc_score(doc: object, intent: object) -> float:
+    """Small deterministic scorer for ticket evidence hydration."""
+    searchable = str(getattr(doc, "searchable_text")()).lower()
+    score = 0.0
+    screen_id = getattr(intent, "screen_id", None)
+    screen_name = getattr(intent, "screen_name", None)
+    action = getattr(intent, "action", None)
+    error_message = getattr(intent, "error_message", None)
+    keywords = getattr(intent, "keywords", []) or []
+    if screen_id and getattr(doc, "screen_id", "") == screen_id:
+        score += 10
+    if screen_name and screen_name in str(getattr(doc, "screen_name", "")):
+        score += 8
+    if action and action in searchable:
+        score += 4
+    if error_message:
+        joined_errors = " ".join(
+            list(getattr(doc, "error_messages", []) or []) + list(getattr(doc, "business_rules", []) or [])
+        )
+        if error_message in joined_errors or error_message in str(getattr(doc, "summary", "")):
+            score += 5
+    for keyword in keywords:
+        if len(str(keyword)) >= 2 and str(keyword).lower() in searchable:
+            score += 1
+    if getattr(doc, "api_path", ""):
+        score += 0.4
+    if getattr(doc, "source_path", ""):
+        score += 0.2
+    return score

@@ -882,62 +882,162 @@ function TicketThread({ ticket, compact = false }: { ticket: SupportTicket | nul
 }
 
 function EvidenceList({ sources }: { sources: SourceCitation[] }) {
+  const evidenceItems = mergeEvidenceSources(sources);
+
   return (
     <div className="evidence-list">
-      <div className="panel-title">
-        <Code2 size={18} aria-hidden="true" />
-        <h3>답변 근거</h3>
+      <div className="evidence-head">
+        <div className="panel-title">
+          <Code2 size={18} aria-hidden="true" />
+          <h3>답변 근거</h3>
+        </div>
+        {evidenceItems.length > 0 && <span>{evidenceItems.length}건</span>}
       </div>
       {sources.length === 0 ? (
         <p>저장된 근거가 없습니다. 필요하면 오른쪽 개발자 챗봇에서 다시 분석해 주세요.</p>
       ) : (
         <ul>
-          {sources.slice(0, 8).map((source, index) => (
+          {evidenceItems.slice(0, 8).map((source, index) => (
             <li key={`${source.doc_id}-${index}`}>
-              <strong>{source.title}</strong>
-              <p>{source.api_description || source.reason}</p>
-              <div className="evidence-meta">
-                {source.business_name && <small>업무명 {source.business_name}</small>}
-                {source.screen_id && <small>화면번호 {source.screen_id}</small>}
-                {source.screen_name && <small>화면 {source.screen_name}</small>}
-                {source.error_codes && source.error_codes.length > 0 && (
-                  <small>error {source.error_codes.join(", ")}</small>
-                )}
-                {source.exception_types && source.exception_types.length > 0 && (
-                  <small>exception {source.exception_types.join(", ")}</small>
-                )}
-              </div>
-              {source.source_path && (
-                <span>
-                  {source.source_path}:{source.line_range}
-                </span>
-              )}
-              {source.api_path && (
-                <small>
-                  API {source.http_method ? `${source.http_method} ` : ""}
-                  {source.api_path}
-                </small>
-              )}
-              {source.dto_names && source.dto_names.length > 0 && (
-                <small>DTO {source.dto_names.join(", ")}</small>
-              )}
-              {source.dto_fields && source.dto_fields.length > 0 && (
-                <small>DTO fields {source.dto_fields.slice(0, 8).join(", ")}</small>
-              )}
-              {source.input_fields && source.input_fields.length > 0 && (
-                <small>입력 {source.input_fields.slice(0, 6).join(", ")}</small>
-              )}
-              {source.validation_conditions && source.validation_conditions.length > 0 && (
-                <small>검증 {source.validation_conditions.slice(0, 3).join(" / ")}</small>
-              )}
-              {source.tables && source.tables.length > 0 && <small>{source.tables.join(", ")}</small>}
-              {source.retrieval_backend && <small>{source.retrieval_backend}</small>}
+              <div className="evidence-index">{index + 1}</div>
+              <article className="evidence-card">
+                <header>
+                  <strong>{source.title}</strong>
+                  <div className="evidence-meta">
+                    {source.business_name && <span>{source.business_name}</span>}
+                    {source.screen_id && <span>{source.screen_id}</span>}
+                    {source.screen_name && <span>{source.screen_name}</span>}
+                    {source.retrieval_backend && <span>{source.retrieval_backend}</span>}
+                  </div>
+                </header>
+                <p title={source.reason}>{evidenceSummary(source)}</p>
+                <dl className="evidence-facts">
+                  {source.source_path && (
+                    <div>
+                      <dt>위치</dt>
+                      <dd>
+                        {source.source_path}:{source.line_range}
+                      </dd>
+                    </div>
+                  )}
+                  {source.api_path && (
+                    <div>
+                      <dt>API</dt>
+                      <dd>
+                        {source.http_method ? `${source.http_method} ` : ""}
+                        {source.api_path}
+                      </dd>
+                    </div>
+                  )}
+                  {source.error_codes && source.error_codes.length > 0 && (
+                    <div>
+                      <dt>Error</dt>
+                      <dd>{source.error_codes.slice(0, 5).join(", ")}</dd>
+                    </div>
+                  )}
+                  {source.exception_types && source.exception_types.length > 0 && (
+                    <div>
+                      <dt>Exception</dt>
+                      <dd>{source.exception_types.join(", ")}</dd>
+                    </div>
+                  )}
+                  {source.dto_names && source.dto_names.length > 0 && (
+                    <div>
+                      <dt>DTO</dt>
+                      <dd>{source.dto_names.join(", ")}</dd>
+                    </div>
+                  )}
+                  {source.dto_fields && source.dto_fields.length > 0 && (
+                    <div>
+                      <dt>Fields</dt>
+                      <dd>{source.dto_fields.slice(0, 6).join(", ")}</dd>
+                    </div>
+                  )}
+                  {source.input_fields && source.input_fields.length > 0 && (
+                    <div>
+                      <dt>입력</dt>
+                      <dd>{source.input_fields.slice(0, 4).join(", ")}</dd>
+                    </div>
+                  )}
+                  {source.validation_conditions && source.validation_conditions.length > 0 && (
+                    <div>
+                      <dt>검증</dt>
+                      <dd>{source.validation_conditions.slice(0, 2).join(" / ")}</dd>
+                    </div>
+                  )}
+                  {source.tables && source.tables.length > 0 && (
+                    <div>
+                      <dt>테이블</dt>
+                      <dd>{source.tables.slice(0, 4).join(", ")}</dd>
+                    </div>
+                  )}
+                </dl>
+              </article>
             </li>
           ))}
         </ul>
       )}
     </div>
   );
+}
+
+function mergeEvidenceSources(sources: SourceCitation[]) {
+  const grouped = new Map<string, SourceCitation>();
+  for (const source of sources) {
+    const key = [
+      source.source_path || "",
+      source.api_path || "",
+      source.title || "",
+      source.business_name || "",
+      source.screen_id || "",
+    ].join("|");
+    const existing = grouped.get(key);
+    if (!existing) {
+      grouped.set(key, {
+        ...source,
+        error_codes: [...(source.error_codes ?? [])],
+        exception_types: [...(source.exception_types ?? [])],
+        dto_names: [...(source.dto_names ?? [])],
+        dto_fields: [...(source.dto_fields ?? [])],
+        input_fields: [...(source.input_fields ?? [])],
+        validation_conditions: [...(source.validation_conditions ?? [])],
+        tables: [...(source.tables ?? [])],
+      });
+      continue;
+    }
+    existing.error_codes = joinUnique([...(existing.error_codes ?? []), ...(source.error_codes ?? [])]);
+    existing.exception_types = joinUnique([
+      ...(existing.exception_types ?? []),
+      ...(source.exception_types ?? []),
+    ]);
+    existing.dto_names = joinUnique([...(existing.dto_names ?? []), ...(source.dto_names ?? [])]);
+    existing.dto_fields = joinUnique([...(existing.dto_fields ?? []), ...(source.dto_fields ?? [])]);
+    existing.input_fields = joinUnique([...(existing.input_fields ?? []), ...(source.input_fields ?? [])]);
+    existing.validation_conditions = joinUnique([
+      ...(existing.validation_conditions ?? []),
+      ...(source.validation_conditions ?? []),
+    ]);
+    existing.tables = joinUnique([...(existing.tables ?? []), ...(source.tables ?? [])]);
+  }
+  return Array.from(grouped.values());
+}
+
+function evidenceSummary(source: SourceCitation) {
+  const text = source.api_description || source.reason || "저장된 근거 요약이 없습니다.";
+  const compact = text.replace(/\s+/g, " ").trim();
+  if (compact.length <= 180) return compact;
+  return `${compact.slice(0, 180).trim()}...`;
+}
+
+function joinUnique(values: Array<string | null | undefined>) {
+  const seen = new Set<string>();
+  return values
+    .map((value) => String(value || "").trim())
+    .filter((value) => {
+      if (!value || seen.has(value)) return false;
+      seen.add(value);
+      return true;
+    });
 }
 
 function RoutePanel({ route }: { route: RouteSummary }) {
