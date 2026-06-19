@@ -13,8 +13,8 @@ export function SourceList({ sources }: SourceListProps) {
         <p>표시할 근거가 없습니다.</p>
       ) : (
         <ul>
-          {sources.map((source) => (
-            <li key={source.doc_id}>
+          {sources.map((source, index) => (
+            <li key={`${source.doc_id}-${index}`}>
               <FileText size={18} aria-hidden="true" />
               <div>
                 <strong>{source.title}</strong>
@@ -27,6 +27,7 @@ export function SourceList({ sources }: SourceListProps) {
                 {source.tables && source.tables.length > 0 && (
                   <small>{source.tables.join(", ")}</small>
                 )}
+                {source.retrieval_backend && <small>{source.retrieval_backend}</small>}
               </div>
             </li>
           ))}

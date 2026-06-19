@@ -4,11 +4,13 @@ from __future__ import annotations
 
 from fastapi import APIRouter
 
+from backend.app.config import settings
 from backend.app.parsers.base import KnowledgeDocument
 from backend.app.rag.safety import sanitize_answer, sanitize_source
 from backend.app.retrieval.elastic_searcher import HybridSearcher
 from backend.app.retrieval.query_analyzer import QueryAnalyzer
 from backend.app.schemas import SearchRequest, SearchResponse
+from backend.app.storage.azure_search import AzureSearchKnowledgeIndex
 
 
 router = APIRouter(prefix="/api", tags=["search"])
@@ -17,6 +19,14 @@ router = APIRouter(prefix="/api", tags=["search"])
 @router.post("/search", response_model=SearchResponse)
 def search(request: SearchRequest) -> dict:
     """Run hybrid search."""
+    if settings.azure_search_endpoint:
+        hits = AzureSearchKnowledgeIndex().search_documents(request.query, top_k=request.top_k)
+        return {
+            "results": [
+                _serialize_search_result(hit.document, hit.score, request.user_role)
+                for hit in hits
+            ]
+        }
     intent = QueryAnalyzer().analyze(request.query)
     ranked = HybridSearcher().search(
         intent,

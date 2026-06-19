@@ -17,6 +17,7 @@ from backend.app.parsers.java_parser import JavaParser
 from backend.app.parsers.mybatis_parser import MyBatisParser
 from backend.app.parsers.sql_parser import SqlParser
 from backend.app.parsers.table_doc_parser import TableDocParser
+from backend.app.storage.azure_search import AzureSearchKnowledgeIndex
 from backend.app.storage.elastic import KnowledgeIndex
 from backend.app.storage.sqlite import SQLiteGraphStore
 
@@ -57,6 +58,7 @@ class IngestionPipeline:
         source_dir: str,
         reset_index: bool = False,
         generate_summaries: bool = False,
+        upload_azure_search: bool = False,
     ) -> IngestionResult:
         """Run the full ingestion pipeline."""
         source_files = self.scanner.scan(source_dir)
@@ -67,6 +69,8 @@ class IngestionPipeline:
             self.graph_store.reset()
         indexed = self.indexer.index_documents(docs, reset_index=reset_index)
         self.graph_store.build_from_documents(indexed)
+        if upload_azure_search:
+            AzureSearchKnowledgeIndex().upload_documents(indexed, reset_index=reset_index)
         return IngestionResult(indexed_count=len(indexed), docs=indexed)
 
     def _parse(self, source_files: List[SourceFile]) -> List[KnowledgeDocument]:
@@ -110,11 +114,13 @@ def main() -> None:
     parser.add_argument("--source-dir", required=True)
     parser.add_argument("--reset-index", action="store_true")
     parser.add_argument("--generate-summaries", action="store_true")
+    parser.add_argument("--upload-azure-search", action="store_true")
     args = parser.parse_args()
     result = IngestionPipeline().run(
         source_dir=args.source_dir,
         reset_index=args.reset_index,
         generate_summaries=args.generate_summaries,
+        upload_azure_search=args.upload_azure_search,
     )
     print(f"Indexed {result.indexed_count} documents")
 

@@ -4,10 +4,17 @@ from __future__ import annotations
 
 import hashlib
 import math
+import subprocess
 from typing import Iterable, List, Optional
+
+import httpx
 
 from backend.app.config import settings
 from backend.app.embedding.cache import EmbeddingCache
+
+
+class EmbeddingConfigError(RuntimeError):
+    """Raised when a configured hosted embedding provider is unavailable."""
 
 
 class Embedder:
@@ -25,7 +32,13 @@ class Embedder:
         cache_path: str = "",
         fallback_dim: int = 384,
     ) -> None:
-        self.model_name = model_name or settings.embedding_model
+        self.provider = settings.embedding_provider.lower().strip() or "local"
+        default_model = (
+            settings.azure_openai_embedding_deployment
+            if self.provider in {"azure", "azure_openai"}
+            else settings.embedding_model
+        )
+        self.model_name = model_name or default_model
         self.batch_size = batch_size or settings.embedding_batch_size
         self.fallback_dim = fallback_dim or settings.embedding_fallback_dim
         self.cache = EmbeddingCache(cache_path or settings.embedding_cache_path)
@@ -62,6 +75,10 @@ class Embedder:
         return self.embed_texts([text])[0]
 
     def _embed_uncached(self, texts: List[str]) -> List[List[float]]:
+        if self.provider in {"hash", "local_hash", "deterministic"}:
+            return [self._hash_embedding(text) for text in texts]
+        if self.provider in {"azure", "azure_openai"}:
+            return self._embed_azure_openai(texts)
         model = self._load_model()
         if model is not None:
             try:
@@ -95,6 +112,79 @@ class Embedder:
                 vector[slot] += 1.0 if byte % 2 == 0 else -1.0
         norm = math.sqrt(sum(value * value for value in vector)) or 1.0
         return [value / norm for value in vector]
+
+    def _embed_azure_openai(self, texts: List[str]) -> List[List[float]]:
+        if not settings.azure_openai_endpoint:
+            raise EmbeddingConfigError("AZURE_OPENAI_ENDPOINT is required for azure_openai embeddings.")
+        if not settings.azure_openai_embedding_deployment:
+            raise EmbeddingConfigError(
+                "AZURE_OPENAI_EMBEDDING_DEPLOYMENT is required for azure_openai embeddings."
+            )
+        url = (
+            f"{settings.azure_openai_endpoint.rstrip('/')}/openai/deployments/"
+            f"{settings.azure_openai_embedding_deployment}/embeddings"
+        )
+        body: dict = {"input": texts}
+        if settings.azure_openai_embedding_dimensions > 0:
+            body["dimensions"] = settings.azure_openai_embedding_dimensions
+        response = httpx.post(
+            url,
+            params={"api-version": settings.azure_openai_api_version},
+            headers=_azure_openai_headers(),
+            json=body,
+            timeout=60,
+        )
+        response.raise_for_status()
+        data = sorted(response.json().get("data", []), key=lambda item: int(item.get("index", 0)))
+        vectors = [_normalize([float(value) for value in item.get("embedding", [])]) for item in data]
+        if len(vectors) != len(texts):
+            raise EmbeddingConfigError("Azure OpenAI embedding response count did not match input count.")
+        return vectors
+
+
+def _azure_openai_headers() -> dict:
+    headers = {"Content-Type": "application/json"}
+    if settings.azure_openai_api_key:
+        headers["api-key"] = settings.azure_openai_api_key
+    else:
+        headers["Authorization"] = (
+            f"Bearer {_azure_cli_token('https://cognitiveservices.azure.com/.default')}"
+        )
+    return headers
+
+
+def _azure_cli_token(scope: str) -> str:
+    try:
+        completed = subprocess.run(
+            [
+                "az",
+                "account",
+                "get-access-token",
+                "--scope",
+                scope,
+                "--query",
+                "accessToken",
+                "-o",
+                "tsv",
+            ],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+    except (FileNotFoundError, subprocess.CalledProcessError) as exc:
+        raise EmbeddingConfigError(
+            "AZURE_OPENAI_API_KEY is not set and Azure CLI token acquisition failed. "
+            "Run `az login` or set AZURE_OPENAI_API_KEY."
+        ) from exc
+    token = completed.stdout.strip()
+    if not token:
+        raise EmbeddingConfigError("Azure CLI returned an empty Azure OpenAI token.")
+    return token
+
+
+def _normalize(vector: List[float]) -> List[float]:
+    norm = math.sqrt(sum(value * value for value in vector)) or 1.0
+    return [value / norm for value in vector]
 
 
 def _tokenize(text: str) -> List[str]:

@@ -3,23 +3,62 @@
 from __future__ import annotations
 
 import re
-from typing import Dict, List
+from typing import Dict
 
 from backend.app.parsers.base import KnowledgeDocument
 from backend.app.utils.text import mask_sensitive
 
 
-FORBIDDEN_PATTERNS = [
+GLOBAL_FORBIDDEN_PATTERNS = [
     re.compile(r"권한\s*우회"),
     re.compile(r"보안\s*로직\s*우회"),
     re.compile(r"운영\s*DB.*직접\s*수정"),
-    re.compile(r"비밀번호|토큰|private_key|api_key", re.IGNORECASE),
+    re.compile(r"비밀번호|패스워드|토큰|시크릿|secret|private_key|api[_-]?key", re.IGNORECASE),
+    re.compile(r"admin\s*key|connection\s*string|sas\s*token|\.env", re.IGNORECASE),
+    re.compile(r"ignore\s+(all\s+)?previous\s+instructions", re.IGNORECASE),
+    re.compile(r"시스템\s*프롬프트|개발자\s*메시지|숨겨진\s*지시"),
+]
+
+BRANCH_FORBIDDEN_PATTERNS = [
+    re.compile(r"소스\s*코드.*(보여|출력|알려|전체|원문)"),
+    re.compile(r"코드.*(보여|출력|알려|전체|원문)"),
+    re.compile(r"테이블명|컬럼명|SQL\s*ID|쿼리\s*원문", re.IGNORECASE),
+    re.compile(r"API\s*경로|엔드포인트|클래스명|메서드명", re.IGNORECASE),
+    re.compile(r"내부\s*(로직|구현|경로|파일|설정)"),
 ]
 
 
-def is_forbidden_question(question: str) -> bool:
+def is_forbidden_question(question: str, user_role: str = "branch") -> bool:
     """Return true when the question requests disallowed guidance."""
-    return any(pattern.search(question) for pattern in FORBIDDEN_PATTERNS)
+    if any(pattern.search(question) for pattern in GLOBAL_FORBIDDEN_PATTERNS):
+        return True
+    if user_role == "branch":
+        return any(pattern.search(question) for pattern in BRANCH_FORBIDDEN_PATTERNS)
+    return False
+
+
+def refusal_answer() -> str:
+    """Return a role-safe refusal with a normal support path."""
+    return (
+        "[가능한 원인]\n"
+        "요청하신 내용은 내부 정보 또는 보안 정책과 관련되어 저는 알려드릴 수 없습니다.\n\n"
+        "[먼저 확인할 사항]\n"
+        "1. 화면에 표시된 오류 문구와 수행한 업무를 기준으로 다시 문의해 주세요.\n"
+        "2. 권한, 고객 상태, 입력값처럼 실제 업무 처리에 필요한 확인 항목만 요청해 주세요.\n\n"
+        "[계속 오류가 발생하는 경우]\n"
+        "정상 장애 문의로 접수하면 IT부서가 필요한 내부 정보는 별도 권한으로 확인합니다.\n\n"
+        "[IT부서 전달용 정보]\n"
+        "- 화면명\n"
+        "- 수행 작업\n"
+        "- 오류 문구\n"
+        "- 발생 시각\n"
+        "- 재시도 여부\n\n"
+        "[근거]\n"
+        "보안 정책상 소스코드, 비밀값, 내부 경로, 우회 방법은 제공하지 않습니다.\n\n"
+        "[조치 후 재시도]\n"
+        "위 조건을 확인한 뒤 업무 오류 내용으로 다시 문의해 주세요. "
+        "동일 오류가 계속되면 화면명, 오류 문구, 발생 시각을 정리해 IT부서에 전달해 주세요."
+    )
 
 
 def sanitize_answer(answer: str, user_role: str) -> str:
@@ -31,6 +70,11 @@ def sanitize_answer(answer: str, user_role: str) -> str:
         cleaned = re.sub(r"\b[A-Z][A-Za-z0-9_]+(?:Controller|Service|Mapper)\.[A-Za-z_]\w*", "[내부 처리 로직]", cleaned)
         cleaned = re.sub(r"\b[a-z][A-Za-z0-9_]*\.[A-Za-z_]\w*(?:\([^)]*\))?", "[내부 처리 로직]", cleaned)
         cleaned = re.sub(r"\b[A-Za-z0-9_]+\.(?:vue|java|xml|ts|tsx|js|jsx)(?:\s*>\s*[A-Za-z_]\w*)?", "화면/업무 근거", cleaned)
+        cleaned = re.sub(
+            r"`?(?:[A-Za-z0-9_.-]+/)+(?:[A-Za-z0-9_.-]+)(?::\d+(?:-\d+)?)?`?",
+            "업무 근거",
+            cleaned,
+        )
         cleaned = re.sub(r"STATUS\s*!=\s*'ACTIVE'", "계좌 상태가 정상 상태가 아닌 경우", cleaned)
         cleaned = re.sub(r"STATUS\s*=\s*'ACTIVE'", "계좌 상태가 정상인 경우", cleaned)
         cleaned = re.sub(r"USE_YN\s*=\s*'Y'", "사용 가능한 상태인 경우", cleaned)

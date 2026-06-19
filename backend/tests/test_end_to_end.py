@@ -113,6 +113,13 @@ def test_generated_ops_source_scenarios_are_searchable(tmp_path):
 
 def test_branch_answer_masks_method_calls_and_rewrites_retry_tail():
     assert "account.getBalance" not in sanitize_answer("account.getBalance() 조건 확인", "branch")
+    masked_path = sanitize_answer(
+        "출처: `backend/examples/bank_sample/backend/ops_scenarios/BranchOpsScenarioService.java:199-222`",
+        "branch",
+    )
+    assert "backend/examples" not in masked_path
+    assert "BranchOpsScenarioService.java" not in masked_path
+    assert "업무 근거" in masked_path
     sanitized_status = sanitize_answer(
         "출금계좌의 사용 여부(USE_YN)가 'N'인 경우 TB_ACCOUNT 테이블의 `STATUS` 및 `USE_YN` 컬럼을 확인합니다.",
         "branch",

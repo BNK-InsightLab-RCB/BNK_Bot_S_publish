@@ -5,7 +5,7 @@ from __future__ import annotations
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from backend.app.api import admin, chat, ingest, search
+from backend.app.api import admin, chat, ingest, runtime, search, source_sync, storage
 
 
 app = FastAPI(title="Source-Aware Branch Support RAG Chatbot", version="0.1.0")
@@ -22,3 +22,6 @@ app.include_router(admin.router)
 app.include_router(chat.router)
 app.include_router(search.router)
 app.include_router(ingest.router)
+app.include_router(storage.router)
+app.include_router(source_sync.router)
+app.include_router(runtime.router)

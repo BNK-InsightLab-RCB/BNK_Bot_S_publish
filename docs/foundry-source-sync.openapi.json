@@ -1,0 +1,164 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Source-Aware RAG Source Sync Tool",
+    "version": "0.1.0",
+    "description": "Administrative tool for syncing department source repositories to Azure Blob Storage and Azure AI Search."
+  },
+  "servers": [
+    {
+      "url": "https://<your-deployed-backend-host>",
+      "description": "Deploy this FastAPI backend to Azure App Service, Azure Container Apps, or Azure Functions before connecting it to Foundry."
+    }
+  ],
+  "security": [
+    {
+      "SourceSyncToken": []
+    }
+  ],
+  "paths": {
+    "/api/source-sync/run": {
+      "post": {
+        "operationId": "runSourceSync",
+        "summary": "Sync a department source folder",
+        "description": "Uploads the source snapshot to Azure Blob Storage, prunes stale blobs, rebuilds the source-aware knowledge documents, and uploads them to Azure AI Search.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SourceSyncRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Source sync completed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SourceSyncResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Unsafe or invalid source path."
+          },
+          "401": {
+            "description": "Invalid admin token."
+          },
+          "502": {
+            "description": "Azure Search or Storage request failed."
+          },
+          "503": {
+            "description": "Azure Storage is not configured."
+          }
+        }
+      }
+    },
+    "/api/source-sync/status": {
+      "get": {
+        "operationId": "getSourceSyncStatus",
+        "summary": "Read the latest source sync status",
+        "responses": {
+          "200": {
+            "description": "Latest source sync status.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Invalid admin token."
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "SourceSyncToken": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "x-source-sync-token"
+      }
+    },
+    "schemas": {
+      "SourceSyncRequest": {
+        "type": "object",
+        "properties": {
+          "source_dir": {
+            "type": "string",
+            "description": "Project-relative path under source_repositories/ or backend/examples/.",
+            "default": "source_repositories/card_ops"
+          },
+          "department": {
+            "type": "string",
+            "description": "Department code used for Storage prefixing.",
+            "default": "card_ops"
+          },
+          "storage_prefix": {
+            "type": "string",
+            "description": "Optional Azure Blob prefix. Defaults to source-live/<department>."
+          },
+          "skip_storage": {
+            "type": "boolean",
+            "default": false
+          },
+          "skip_azure_search": {
+            "type": "boolean",
+            "default": false
+          },
+          "generate_summaries": {
+            "type": "boolean",
+            "default": false
+          },
+          "reset_index": {
+            "type": "boolean",
+            "default": true
+          },
+          "prune_storage": {
+            "type": "boolean",
+            "default": true
+          }
+        },
+        "required": ["source_dir", "department"]
+      },
+      "SourceSyncResponse": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string"
+          },
+          "department": {
+            "type": "string"
+          },
+          "source_dir": {
+            "type": "string"
+          },
+          "storage_prefix": {
+            "type": "string"
+          },
+          "reset_index": {
+            "type": "boolean"
+          },
+          "storage": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "ingestion": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        },
+        "required": ["status", "department", "source_dir", "storage_prefix", "reset_index", "storage", "ingestion"]
+      }
+    }
+  }
+}

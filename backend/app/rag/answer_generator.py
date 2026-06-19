@@ -9,7 +9,7 @@ from backend.app.llm.prompts import ANSWER_PROMPT
 from backend.app.llm.qwen_client import QwenClient
 from backend.app.parsers.base import KnowledgeDocument
 from backend.app.rag.citation_builder import CitationBuilder
-from backend.app.rag.safety import is_forbidden_question, sanitize_answer
+from backend.app.rag.safety import is_forbidden_question, refusal_answer, sanitize_answer
 from backend.app.retrieval.context_builder import ContextBuilder
 from backend.app.utils.text import unique_keep_order
 
@@ -36,14 +36,8 @@ class AnswerGenerator:
     ) -> Dict[str, object]:
         """Return a structured chat response."""
         doc_list = list(docs)
-        if is_forbidden_question(question):
-            answer = (
-                "[가능한 원인]\n요청하신 내용은 보안 정책상 안내할 수 없습니다.\n\n"
-                "[먼저 확인할 사항]\n정상 권한 신청 절차와 승인된 업무 매뉴얼을 확인해 주세요.\n\n"
-                "[계속 오류가 발생하는 경우]\nIT부서에 오류 문구와 화면명을 전달해 주세요.\n\n"
-                "[IT부서 전달용 정보]\n보안 우회 또는 직접 수정 요청이 아닌 정상 장애 문의로 접수해야 합니다.\n\n"
-                "[근거]\n보안 정책"
-            )
+        if is_forbidden_question(question, user_role=user_role):
+            answer = refusal_answer()
             return self._response(answer, doc_list, user_role, confidence=0.2)
 
         context = self.context_builder.build(doc_list, user_role=user_role)
@@ -59,6 +53,18 @@ class AnswerGenerator:
             answer = self._fallback_answer(question, doc_list, user_role)
         answer = _ensure_retry_section(answer, doc_list)
         return self._response(answer, doc_list, user_role, confidence=_confidence(doc_list))
+
+    def generate_from_external_answer(
+        self,
+        answer: str,
+        docs: Iterable[KnowledgeDocument],
+        user_role: str = "branch",
+        confidence: float = 0.72,
+    ) -> Dict[str, object]:
+        """Wrap a hosted-model answer with local retry, citation, and safety policy."""
+        doc_list = list(docs)
+        answer = _ensure_retry_section(answer, doc_list)
+        return self._response(answer, doc_list, user_role, confidence=confidence)
 
     def _response(
         self, answer: str, docs: List[KnowledgeDocument], user_role: str, confidence: float

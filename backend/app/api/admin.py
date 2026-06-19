@@ -15,7 +15,11 @@ router = APIRouter(prefix="/api", tags=["admin"])
 @router.get("/health", response_model=HealthResponse)
 def health() -> dict:
     """Return backend health."""
-    return {"status": "ok", "index_name": settings.elastic_index}
+    return {
+        "status": "ok",
+        "index_name": settings.elastic_index,
+        "rag_provider": settings.rag_provider,
+    }
 
 
 @router.post("/admin/reset")

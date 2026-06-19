@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import json
 import time
+import urllib.error
+import urllib.request
 from pathlib import Path
 from typing import Iterable, List, Optional
 
@@ -125,6 +127,8 @@ class KnowledgeIndex:
                 raise
 
     def _client(self) -> Optional[object]:
+        if not _is_elasticsearch_reachable(self.elastic_url):
+            return None
         try:
             from elasticsearch import Elasticsearch
 
@@ -143,3 +147,11 @@ def _elastic_payload(doc: KnowledgeDocument) -> dict:
         for error in doc.possible_errors
     ]
     return payload
+
+
+def _is_elasticsearch_reachable(url: str) -> bool:
+    try:
+        with urllib.request.urlopen(url, timeout=0.5) as response:
+            return 200 <= response.status < 500
+    except (urllib.error.URLError, TimeoutError, ValueError):
+        return False

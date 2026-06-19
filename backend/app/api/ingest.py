@@ -23,6 +23,7 @@ def run_ingest(request: IngestRequest) -> dict:
         source_dir=request.source_dir,
         reset_index=request.reset_index,
         generate_summaries=request.generate_summaries,
+        upload_azure_search=request.upload_azure_search,
     )
     _last_status = {"status": "completed", "indexed_count": result.indexed_count}
     return _last_status
