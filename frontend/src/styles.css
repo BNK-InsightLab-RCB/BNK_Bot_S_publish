@@ -825,8 +825,7 @@ button:disabled {
 }
 
 .upload-event-list,
-.kpi-list,
-.model-event-list {
+.kpi-list {
   display: grid;
   gap: 8px;
 }
@@ -837,8 +836,7 @@ button:disabled {
 }
 
 .upload-event-list article,
-.kpi-list article,
-.model-event-list article {
+.kpi-list article {
   min-width: 0;
   border: 1px solid var(--stroke-soft);
   border-radius: 8px;
@@ -871,8 +869,7 @@ button:disabled {
   font-size: 12px;
 }
 
-.evaluation-panel,
-.model-events-panel {
+.evaluation-panel {
   display: grid;
   gap: 12px;
 }
@@ -1348,52 +1345,6 @@ button:disabled {
   color: var(--text-muted);
   font-size: 12px;
   line-height: 1.4;
-}
-
-.model-event-list {
-  max-height: 560px;
-  overflow: auto;
-  padding-right: 3px;
-}
-
-.model-event-list article {
-  display: grid;
-  gap: 8px;
-}
-
-.model-event-list header {
-  display: grid;
-  grid-template-columns: 72px 110px minmax(58px, auto);
-  gap: 8px;
-  align-items: center;
-}
-
-.model-event-list header span,
-.model-event-list header small,
-.trace-line {
-  color: var(--text-muted);
-  font-size: 12px;
-  font-weight: 760;
-}
-
-.model-event-list header strong {
-  color: var(--text);
-}
-
-.model-event-list p {
-  margin: 0;
-  color: var(--text);
-  line-height: 1.45;
-  overflow-wrap: anywhere;
-}
-
-.model-event-list blockquote {
-  margin: 0;
-  border-left: 3px solid rgba(0, 102, 204, 0.44);
-  padding: 7px 10px;
-  color: #303036;
-  background: rgba(255, 255, 255, 0.78);
-  line-height: 1.5;
 }
 
 .branch-guide-panel {

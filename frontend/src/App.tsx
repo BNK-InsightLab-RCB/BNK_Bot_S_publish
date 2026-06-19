@@ -683,7 +683,6 @@ function AdminWorkspace({
         <div className="admin-content-grid">
           <div className="admin-stack">
             <AdminEvaluationPanel />
-            <AdminModelEventsPanel dashboard={dashboard} />
           </div>
           <div className="admin-stack">
             <LogPanel logs={logs} onRefresh={onRefresh} />
@@ -1009,43 +1008,6 @@ function AdminEvaluationPanel() {
           AI Search 근거 누락인지, 도구 호출은 됐지만 답변에 반영되지 않은 문제인지 나눠 확인합니다.
         </p>
       </div>
-    </section>
-  );
-}
-
-function AdminModelEventsPanel({ dashboard }: { dashboard: AdminDashboard | null }) {
-  const events = dashboard?.recent_model_events ?? [];
-  return (
-    <section className="panel model-events-panel">
-      <div className="panel-title">
-        <Activity size={19} aria-hidden="true" />
-        <h2>답변 생성 / 참조 로그</h2>
-      </div>
-      {events.length === 0 ? (
-        <p className="empty-text">아직 답변 로그가 없습니다.</p>
-      ) : (
-        <div className="model-event-list">
-          {events.map((event) => (
-            <article key={event.id}>
-              <header>
-                <span>{formatTime(event.timestamp)}</span>
-                <strong>{routeLabel(event.answer_backend)}</strong>
-                <small>{event.duration_ms ? `${event.duration_ms}ms` : "-"}</small>
-              </header>
-              <p>{event.question_preview}</p>
-              {event.answer_preview && <blockquote>{event.answer_preview}</blockquote>}
-              <div className="source-chip-row">
-                {(event.source_titles ?? []).slice(0, 4).map((title) => (
-                  <span key={title}>{title}</span>
-                ))}
-              </div>
-              {event.agent_trace?.length > 0 && (
-                <small className="trace-line">{event.agent_trace.slice(-2).join(" / ")}</small>
-              )}
-            </article>
-          ))}
-        </div>
-      )}
     </section>
   );
 }
