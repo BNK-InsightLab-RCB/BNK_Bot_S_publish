@@ -107,6 +107,7 @@ def test_foundry_payload_uses_agent_reference_version(monkeypatch):
         "version": "3",
     }
     assert payload["tool_choice"] == "required"
+    assert "temperature" not in payload
     assert "로컬 분석 힌트" not in str(payload["input"])
     assert "Azure AI Search 도구를 먼저 사용" in str(payload["input"])
 

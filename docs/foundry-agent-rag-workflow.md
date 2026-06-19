@@ -56,6 +56,7 @@ AZURE_MONITOR_METRIC_NAMES=TokenTransaction,ProcessedPromptTokens,GeneratedToken
 ```
 
 Agent version은 Foundry portal에서 Publish된 버전을 사용한다. 버전 값을 비워두면 Agent 이름만으로 호출한다.
+Foundry Agent reference 호출에서는 Agent의 배포 설정을 따르므로 `temperature` 같은 생성 옵션은 요청 payload에 넣지 않는다.
 
 ## RAG 지침서 초안
 

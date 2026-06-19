@@ -131,9 +131,9 @@ class FoundryAgentClient:
         payload: Dict[str, object] = {
             "model": self.model_deployment,
             "input": prompt,
-            "temperature": 0.1,
         }
         if disable_tools:
+            payload["temperature"] = 0.1
             return payload
         if settings.foundry_agent_name:
             payload["tool_choice"] = "required" if settings.foundry_force_search_tool else "auto"
@@ -145,6 +145,7 @@ class FoundryAgentClient:
                 agent_reference["version"] = settings.foundry_agent_version
             payload["agent_reference"] = agent_reference
             return payload
+        payload["temperature"] = 0.1
         if settings.foundry_ai_search_connection_id:
             payload["tool_choice"] = "required" if settings.foundry_force_search_tool else "auto"
             payload["tools"] = [
