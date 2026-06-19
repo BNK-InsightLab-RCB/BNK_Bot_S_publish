@@ -720,6 +720,15 @@ function AdminProviderBoards({ dashboard }: { dashboard: AdminDashboard | null }
   const totals = dashboard?.totals;
   const routeCounts = dashboard?.route_counts ?? [];
   const retrievalCounts = dashboard?.retrieval_counts ?? [];
+  const azureUsage = {
+    model: azure?.foundry_model || "gpt-5.4",
+    usedTokens: 128_420,
+    remainingTokens: 871_580,
+    tokenLimit: 1_000_000,
+    requestCount: totals?.cloud_answer_count ?? 14,
+    latencyP95: 820,
+  };
+  const usedPercent = Math.round((azureUsage.usedTokens / azureUsage.tokenLimit) * 100);
   return (
     <section className="provider-board-grid" aria-label="응답 경로 대시보드">
       <article className="panel provider-card is-azure">
@@ -765,6 +774,47 @@ function AdminProviderBoards({ dashboard }: { dashboard: AdminDashboard | null }
             .map((item) => (
               <span key={item.label}>{item.label} {item.count}</span>
             ))}
+        </div>
+        <div className="azure-ops-grid">
+          <div className="azure-demo-grid" aria-label="Azure 모델 사용량 데모">
+            <article>
+              <span>모델 사용량</span>
+              <strong>{usedPercent}%</strong>
+              <small>{azureUsage.usedTokens.toLocaleString()} / {azureUsage.tokenLimit.toLocaleString()} tokens</small>
+              <div className="usage-meter" aria-hidden="true">
+                <span style={{ width: `${usedPercent}%` }} />
+              </div>
+            </article>
+            <article>
+              <span>남은 토큰</span>
+              <strong>{azureUsage.remainingTokens.toLocaleString()}</strong>
+              <small>{azureUsage.model} · P95 {azureUsage.latencyP95}ms</small>
+              <div className="usage-meter is-remaining" aria-hidden="true">
+                <span style={{ width: `${100 - usedPercent}%` }} />
+              </div>
+            </article>
+          </div>
+          <div className="observability-demo" aria-label="Azure Observability API 데모">
+            <header>
+              <div>
+                <span className="eyebrow">Observability API</span>
+                <strong>대화 · 참조 · 토큰 추적</strong>
+                <small>{azureUsage.requestCount} demo calls</small>
+              </div>
+              <button type="button" disabled title="데모 UI입니다. 실제 Azure API 호출은 연결하지 않았습니다.">
+                API 연결 예정
+              </button>
+            </header>
+            <div className="api-route-list">
+              <code>GET /azure/model-usage</code>
+              <code>GET /azure/observability/conversations</code>
+            </div>
+            <div className="obs-chat-preview">
+              <p><span>user</span> 자동이체 등록 오류 원인 요약 요청</p>
+              <p><span>foundry</span> Search 근거 6건 참조 · 답변 생성</p>
+              <p><span>monitor</span> input 1.8k · output 940 · remaining {azureUsage.remainingTokens.toLocaleString()}</p>
+            </div>
+          </div>
         </div>
       </article>
       <article className="panel provider-card is-local">

@@ -744,6 +744,10 @@ button:disabled {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
+.provider-board-grid {
+  align-items: stretch;
+}
+
 .admin-stack {
   min-width: 0;
   display: grid;
@@ -861,7 +865,7 @@ button:disabled {
 .provider-card {
   min-height: 248px;
   display: grid;
-  grid-template-rows: auto auto minmax(0, 1fr) auto;
+  align-content: start;
   gap: 13px;
   overflow: hidden;
 }
@@ -962,6 +966,141 @@ button:disabled {
   background: rgba(255, 255, 255, 0.78);
   font-size: 12px;
   font-weight: 700;
+}
+
+.azure-ops-grid {
+  display: grid;
+  grid-template-columns: minmax(230px, 0.72fr) minmax(360px, 1.28fr);
+  gap: 8px;
+  align-items: stretch;
+}
+
+.azure-demo-grid {
+  display: grid;
+  gap: 8px;
+}
+
+.azure-demo-grid article,
+.observability-demo {
+  min-width: 0;
+  border: 1px solid rgba(0, 102, 204, 0.16);
+  border-radius: 8px;
+  background: linear-gradient(180deg, rgba(245, 250, 255, 0.92), rgba(255, 255, 255, 0.76));
+}
+
+.azure-demo-grid article {
+  display: grid;
+  gap: 5px;
+  padding: 9px 10px;
+}
+
+.azure-demo-grid span,
+.azure-demo-grid small {
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 760;
+}
+
+.azure-demo-grid strong {
+  color: var(--blue);
+  font-size: 21px;
+  line-height: 1;
+}
+
+.usage-meter {
+  height: 7px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(0, 102, 204, 0.12);
+}
+
+.usage-meter span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--blue);
+}
+
+.usage-meter.is-remaining span {
+  background: #1c7c54;
+}
+
+.observability-demo {
+  display: grid;
+  gap: 8px;
+  padding: 10px;
+}
+
+.observability-demo header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.observability-demo header strong {
+  display: block;
+  margin-top: 3px;
+  color: var(--text);
+  font-size: 14px;
+}
+
+.observability-demo header small {
+  display: block;
+  margin-top: 2px;
+  color: var(--text-muted);
+  font-size: 11px;
+  font-weight: 760;
+}
+
+.observability-demo button {
+  min-height: 32px;
+  padding: 0 10px;
+  border-radius: 8px;
+  color: var(--text-muted);
+  background: rgba(255, 255, 255, 0.78);
+  font-size: 12px;
+  font-weight: 760;
+}
+
+.api-route-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.api-route-list code {
+  min-width: 0;
+  flex: 1 1 210px;
+  overflow: hidden;
+  border: 1px solid var(--stroke-soft);
+  border-radius: 7px;
+  padding: 7px 8px;
+  color: #0d4f94;
+  background: rgba(255, 255, 255, 0.8);
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.obs-chat-preview {
+  display: grid;
+  gap: 5px;
+}
+
+.obs-chat-preview p {
+  display: grid;
+  grid-template-columns: 70px minmax(0, 1fr);
+  gap: 8px;
+  margin: 0;
+  color: #303036;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.obs-chat-preview span {
+  color: var(--blue);
+  font-weight: 760;
 }
 
 .kpi-list article {
@@ -1889,6 +2028,8 @@ button:disabled {
   .admin-placeholder dl,
   .admin-panel,
   .admin-panel .upload-event-list,
+  .azure-ops-grid,
+  .azure-demo-grid,
   .admin-row {
     grid-template-columns: 1fr;
   }
