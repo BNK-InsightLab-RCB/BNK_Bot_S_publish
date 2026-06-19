@@ -854,6 +854,7 @@ button:disabled {
 
 .it-layout {
   grid-template-columns: 320px minmax(360px, 0.9fr) minmax(520px, 1.25fr);
+  align-items: stretch;
 }
 
 .left-rail,
@@ -870,6 +871,19 @@ button:disabled {
   display: grid;
   gap: 12px;
   align-content: start;
+}
+
+.it-layout .mailbox,
+.ticket-detail-panel,
+.developer-chat-rail {
+  height: calc(100vh - 178px);
+  min-height: 560px;
+  overflow: auto;
+  resize: vertical;
+}
+
+.developer-chat-rail .chat-panel {
+  min-height: 430px;
 }
 
 .question-guide {
@@ -898,18 +912,20 @@ button:disabled {
 .mailbox {
   display: grid;
   gap: 12px;
+  align-content: start;
 }
 
 .mail-list {
   display: grid;
   gap: 8px;
-  max-height: calc(100vh - 280px);
+  max-height: calc(100vh - 270px);
   overflow: auto;
   padding-right: 2px;
 }
 
 .mail-list button {
-  min-height: 78px;
+  height: 96px;
+  min-height: 76px;
   display: grid;
   align-content: center;
   gap: 4px;
@@ -955,6 +971,7 @@ button:disabled {
 .ticket-detail-panel {
   display: grid;
   gap: 12px;
+  align-content: start;
 }
 
 .ticket-detail-panel .ticket-thread {
@@ -974,6 +991,14 @@ button:disabled {
   border-radius: 8px;
   padding: 11px 12px;
   background: #fbfbfd;
+}
+
+.ticket-head {
+  min-height: 112px;
+}
+
+.mail-body {
+  min-height: 124px;
 }
 
 .ticket-head {
@@ -1020,6 +1045,8 @@ button:disabled {
 .reply-stack {
   display: grid;
   gap: 8px;
+  max-height: 170px;
+  overflow: auto;
 }
 
 .reply-stack article.from-it {
@@ -1042,16 +1069,20 @@ button:disabled {
 .evidence-list ul {
   display: grid;
   gap: 8px;
+  max-height: 240px;
+  overflow: auto;
   margin: 0;
   padding: 0;
   list-style: none;
 }
 
 .evidence-list li {
+  min-height: 118px;
   border: 1px solid #e5e5ea;
   border-radius: 8px;
   padding: 11px 12px;
   background: #fbfbfd;
+  overflow: auto;
 }
 
 .evidence-list strong,
@@ -1130,6 +1161,13 @@ button:disabled {
   .ticket-detail-rail,
   .developer-chat-rail {
     position: static;
+  }
+
+  .it-layout .mailbox,
+  .ticket-detail-panel,
+  .developer-chat-rail {
+    height: auto;
+    min-height: 420px;
   }
 }
 

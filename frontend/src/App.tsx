@@ -233,6 +233,14 @@ export default function App() {
 
   const selectedTicket =
     tickets.find((ticket) => ticket.id === selectedTicketId) ?? tickets[0] ?? null;
+  const assignedTickets = session
+    ? tickets.filter(
+        (ticket) =>
+          !ticket.recipient_employee_id || ticket.recipient_employee_id === session.employee_id,
+      )
+    : tickets;
+  const assignedSelectedTicket =
+    assignedTickets.find((ticket) => ticket.id === selectedTicketId) ?? assignedTickets[0] ?? null;
 
   return (
     <main className="app-shell">
@@ -265,8 +273,8 @@ export default function App() {
           response={response}
           loading={loading}
           activeQuestion={activeQuestion}
-          tickets={tickets}
-          selectedTicket={selectedTicket}
+          tickets={assignedTickets}
+          selectedTicket={assignedSelectedTicket}
           onAsk={handleAsk}
           onReply={handleReply}
           onRefresh={refreshRuntime}
@@ -552,7 +560,9 @@ function ITWorkspace({
           description="파일, API, 서비스, SQL, 테이블 단서까지 함께 확인합니다."
           samples={itSamples}
         />
-        <AnswerView response={response} loading={loading} question={activeQuestion} />
+        {(response || loading || activeQuestion) && (
+          <AnswerView response={response} loading={loading} question={activeQuestion} />
+        )}
       </section>
     </div>
   );

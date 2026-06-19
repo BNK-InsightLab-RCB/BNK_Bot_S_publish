@@ -66,6 +66,10 @@ class RuntimeStore:
             "sender_employee_id": str(payload.get("sender_employee_id") or ""),
             "sender_role": str(payload.get("sender_role") or "branch"),
             "sender_role_code": str(payload.get("sender_role_code") or "01"),
+            "recipient_name": str(payload.get("recipient_name") or ""),
+            "recipient_employee_id": str(payload.get("recipient_employee_id") or ""),
+            "recipient_role": str(payload.get("recipient_role") or "it"),
+            "recipient_role_code": str(payload.get("recipient_role_code") or "02"),
             "question": question,
             "summary": str(payload.get("summary") or ""),
             "answer_backend": str(payload.get("answer_backend") or ""),
@@ -170,6 +174,10 @@ class RuntimeStore:
         normalized.setdefault("sender_employee_id", "")
         normalized.setdefault("sender_role", "branch")
         normalized.setdefault("sender_role_code", "01")
+        normalized.setdefault("recipient_name", "")
+        normalized.setdefault("recipient_employee_id", "")
+        normalized.setdefault("recipient_role", "it")
+        normalized.setdefault("recipient_role_code", "02")
         normalized["sources"] = _safe_sources(normalized.get("sources"))
         replies = normalized.get("replies")
         normalized["replies"] = replies if isinstance(replies, list) else []

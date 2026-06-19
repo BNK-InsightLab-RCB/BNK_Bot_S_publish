@@ -69,6 +69,10 @@ export interface SupportTicket {
   sender_employee_id: string;
   sender_role: UserRole;
   sender_role_code: RoleCode;
+  recipient_name?: string;
+  recipient_employee_id?: string;
+  recipient_role?: UserRole;
+  recipient_role_code?: RoleCode;
   question: string;
   summary: string;
   answer_backend: string;
@@ -229,6 +233,10 @@ export async function createSupportTicket(input: {
   sender_employee_id?: string;
   sender_role?: UserRole;
   sender_role_code?: RoleCode;
+  recipient_name?: string;
+  recipient_employee_id?: string;
+  recipient_role?: UserRole;
+  recipient_role_code?: RoleCode;
   answer_backend?: string;
   rag_provider?: string;
   retrieval_backend?: string;
