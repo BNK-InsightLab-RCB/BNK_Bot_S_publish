@@ -23,7 +23,9 @@ def _read_xml(text: str) -> ET.Element:
     return ET.fromstring(text, parser=parser)
 
 
-def _tag_name(tag: str) -> str:
+def _tag_name(tag: object) -> str:
+    if not isinstance(tag, str):
+        return ""
     return tag.split("}", 1)[-1].lower()
 
 

@@ -16,3 +16,20 @@ def test_mybatis_parser_extracts_sql_metadata():
     assert any("USE_YN" in rule for rule in select.business_rules)
     assert update.metadata["crud"] == "UPDATE"
     assert "STATUS" in update.columns
+
+
+def test_mybatis_parser_ignores_xml_comments():
+    text = """
+    <mapper namespace="CommentMapper">
+      <!-- comment nodes should not be parsed as SQL tags -->
+      <select id="findOne" parameterType="map">
+        SELECT * FROM TB_SAMPLE WHERE ID = #{id}
+      </select>
+    </mapper>
+    """
+
+    docs = MyBatisParser().parse(
+        SourceFile(path=Path("CommentMapper.xml"), language="xml", text=text)
+    )
+
+    assert [doc.sql_id for doc in docs] == ["CommentMapper.findOne"]
