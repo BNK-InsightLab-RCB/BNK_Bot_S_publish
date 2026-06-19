@@ -49,9 +49,9 @@ const roleOptions: Array<{ code: RoleCode; role: UserRole; label: string }> = [
 ];
 
 const branchSamples = [
-  "자동이체 등록 화면에서 출금계좌가 만료되었거나 사용 불가 상태라고 나와요. 납부자번호는 입력했습니다.",
-  "고객조회 화면에서 저장이 안돼요. 오류 문구는 저장 권한이 없다고 나옵니다.",
-  "전표승인 화면에서 승인 버튼을 눌렀는데 계속 오류가 납니다.",
+  "자동이체 등록: 출금계좌 사용 불가",
+  "고객조회 저장: 권한 없음 문구 표시",
+  "전표승인: 승인 후 오류 반복",
 ];
 
 const itSamples = [
@@ -498,7 +498,9 @@ function BranchWorkspace({
           description="화면명, 오류 문구, 처리 상황을 함께 남겨주세요."
           samples={branchSamples}
         />
-        <AnswerView response={response} loading={loading} question={activeQuestion} />
+        {(response || loading || activeQuestion) && (
+          <AnswerView response={response} loading={loading} question={activeQuestion} />
+        )}
       </section>
       <aside className="ops-rail right-rail">
         <BranchMailbox
@@ -632,12 +634,36 @@ function AdminWorkspace({
 
 function QuestionGuide() {
   const examples = [
-    "업무명/화면명: 자동이체 등록, 카드 재발급처럼 실제 화면 이름",
-    "오류 문구: 화면에 나온 문장을 줄이지 말고 그대로",
-    "수행 작업: 조회, 등록, 승인, 발급 등 누른 버튼과 직전 단계",
-    "입력 상황: 전체 계좌번호 대신 뒤 4자리, 납부자번호/전표번호 등은 필요한 범위만",
-    "발생 범위: 특정 고객만, 특정 계좌만, 모든 직원 공통인지",
-    "재시도 결과: 새로고침, 재로그인, 다른 정상 건 비교 여부",
+    {
+      label: "화면",
+      title: "업무명/화면명",
+      body: "자동이체 등록, 카드 재발급처럼 실제 화면 이름",
+    },
+    {
+      label: "문구",
+      title: "오류 문구",
+      body: "화면에 나온 문장을 줄이지 말고 그대로",
+    },
+    {
+      label: "작업",
+      title: "수행 작업",
+      body: "조회, 등록, 승인, 발급 등 누른 버튼과 직전 단계",
+    },
+    {
+      label: "입력",
+      title: "입력 상황",
+      body: "계좌는 뒤 4자리만, 납부자번호/전표번호는 필요한 범위만",
+    },
+    {
+      label: "범위",
+      title: "발생 범위",
+      body: "특정 고객, 특정 계좌, 모든 직원 공통 여부",
+    },
+    {
+      label: "재시도",
+      title: "재시도 결과",
+      body: "새로고침, 재로그인, 정상 건 비교 여부",
+    },
   ];
   return (
     <section className="panel question-guide">
@@ -645,11 +671,17 @@ function QuestionGuide() {
         <Bot size={19} aria-hidden="true" />
         <h2>질문 가이드</h2>
       </div>
-      <ol>
+      <div className="guide-list">
         {examples.map((item) => (
-          <li key={item}>{item}</li>
+          <article key={item.label}>
+            <span>{item.label}</span>
+            <div>
+              <strong>{item.title}</strong>
+              <p>{item.body}</p>
+            </div>
+          </article>
         ))}
-      </ol>
+      </div>
       <div className="guide-note">
         주민번호, 전체 계좌번호, 비밀번호, 인증번호는 입력하지 마세요.
       </div>
@@ -682,13 +714,22 @@ function BranchMailbox({
         <MessageSquarePlus size={18} aria-hidden="true" />
         <span>{ticketStatus || "현재 상황 보내기"}</span>
       </button>
-      <TicketList
-        tickets={tickets}
-        selectedTicketId={selectedTicket?.id ?? ""}
-        emptyText="보낸 쪽지가 없습니다."
-        onSelectTicket={onSelectTicket}
-      />
-      <TicketThread ticket={selectedTicket} compact />
+      {tickets.length > 0 ? (
+        <>
+          <TicketList
+            tickets={tickets}
+            selectedTicketId={selectedTicket?.id ?? ""}
+            emptyText="보낸 쪽지가 없습니다."
+            onSelectTicket={onSelectTicket}
+          />
+          <TicketThread ticket={selectedTicket} compact />
+        </>
+      ) : (
+        <div className="mailbox-empty-card">
+          <strong>아직 보낸 쪽지가 없습니다</strong>
+          <p>챗봇 답변이 나온 뒤 현재 상황을 IT 담당자에게 보낼 수 있습니다.</p>
+        </div>
+      )}
     </section>
   );
 }
