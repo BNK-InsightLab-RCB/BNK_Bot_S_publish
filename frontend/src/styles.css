@@ -1663,9 +1663,9 @@ button:disabled {
 .branch-layout .sample-row button {
   display: -webkit-box;
   overflow: hidden;
-  min-height: 64px;
+  min-height: 84px;
   -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
+  -webkit-line-clamp: 3;
 }
 
 .branch-layout .right-rail .mailbox {
