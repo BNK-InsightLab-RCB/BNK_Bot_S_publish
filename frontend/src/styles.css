@@ -760,6 +760,10 @@ button:disabled {
   align-items: center;
 }
 
+.admin-panel > .admin-row {
+  align-items: stretch;
+}
+
 .admin-button-group {
   display: flex;
   flex-wrap: wrap;
@@ -769,6 +773,17 @@ button:disabled {
 
 .admin-button-group button {
   min-width: 116px;
+}
+
+.admin-panel > .admin-row .admin-button-group {
+  align-self: stretch;
+  align-items: stretch;
+}
+
+.admin-panel > .admin-row .admin-button-group button {
+  height: 100%;
+  min-height: 74px;
+  border-radius: 8px;
 }
 
 .storage-drop {
