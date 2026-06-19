@@ -438,5 +438,44 @@ async function errorMessage(response: Response, fallback: string): Promise<strin
   if (detail && typeof detail.detail === "string") {
     return detail.detail;
   }
+  if (detail && Array.isArray(detail.detail)) {
+    const messages = detail.detail
+      .map((item: unknown) => validationMessage(item))
+      .filter(Boolean);
+    if (messages.length > 0) {
+      return messages.join(" ");
+    }
+  }
   return `${fallback} (${response.status})`;
+}
+
+function validationMessage(item: unknown): string {
+  if (!item || typeof item !== "object") return "";
+  const payload = item as { loc?: unknown[]; msg?: unknown; type?: unknown };
+  const field = Array.isArray(payload.loc) ? String(payload.loc[payload.loc.length - 1] ?? "") : "";
+  const label = fieldLabel(field);
+  const message = typeof payload.msg === "string" ? payload.msg : "";
+  if (field === "password" && String(payload.type).includes("string_too_short")) {
+    return "비밀번호는 4자 이상 입력해 주세요.";
+  }
+  if (field === "role_code") {
+    return "권한은 01, 02, 03 중 하나를 선택해 주세요.";
+  }
+  if (field === "real_name") {
+    return "실명을 입력해 주세요.";
+  }
+  if (field === "employee_id") {
+    return "행번을 입력해 주세요.";
+  }
+  return label ? `${label}: ${message}` : message;
+}
+
+function fieldLabel(field: string): string {
+  const labels: Record<string, string> = {
+    real_name: "실명",
+    employee_id: "행번",
+    password: "비밀번호",
+    role_code: "권한",
+  };
+  return labels[field] ?? field;
 }

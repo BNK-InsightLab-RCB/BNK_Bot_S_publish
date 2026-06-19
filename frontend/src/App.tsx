@@ -332,6 +332,7 @@ function LoginView({
   const [password, setPassword] = useState("");
   const [roleCode, setRoleCode] = useState<RoleCode>("01");
   const [submitting, setSubmitting] = useState(false);
+  const signupMissingName = mode === "signup" && !realName.trim();
 
   async function submit(event: FormEvent) {
     event.preventDefault();
@@ -386,7 +387,11 @@ function LoginView({
               실명
               <span>
                 <Users size={17} aria-hidden="true" />
-                <input value={realName} onChange={(event) => setRealName(event.target.value)} />
+                <input
+                  required
+                  value={realName}
+                  onChange={(event) => setRealName(event.target.value)}
+                />
               </span>
             </label>
           )}
@@ -394,7 +399,11 @@ function LoginView({
             행번
             <span>
               <IdCard size={17} aria-hidden="true" />
-              <input value={employeeId} onChange={(event) => setEmployeeId(event.target.value)} />
+              <input
+                required
+                value={employeeId}
+                onChange={(event) => setEmployeeId(event.target.value)}
+              />
             </span>
           </label>
           <label>
@@ -402,6 +411,8 @@ function LoginView({
             <span>
               <LockKeyhole size={17} aria-hidden="true" />
               <input
+                required
+                minLength={mode === "signup" ? 4 : 1}
                 type="password"
                 value={password}
                 onChange={(event) => setPassword(event.target.value)}
@@ -420,7 +431,7 @@ function LoginView({
               </select>
             </label>
           )}
-          <button type="submit" disabled={submitting || !employeeId || !password}>
+          <button type="submit" disabled={submitting || signupMissingName || !employeeId || !password}>
             {mode === "signup" ? <UserPlus size={18} aria-hidden="true" /> : <LockKeyhole size={18} aria-hidden="true" />}
             <span>{submitting ? "처리 중" : mode === "signup" ? "가입하기" : "로그인"}</span>
           </button>
