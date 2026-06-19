@@ -625,6 +625,16 @@ function AdminWorkspace({
   return (
     <div className="workspace admin-layout">
       <section className="admin-dashboard">
+        <AdminPanel
+          ingesting={ingesting}
+          ingestStatus={ingestStatus}
+          onIngest={onIngest}
+          uploading={uploading}
+          uploadStatus={uploadStatus}
+          lastUploaded={lastUploaded}
+          recentStorageEvents={dashboard?.recent_storage_events ?? []}
+          onStorageUpload={onStorageUpload}
+        />
         <section className="panel admin-command">
           <div>
             <span className="eyebrow">Admin Control Plane</span>
@@ -676,16 +686,6 @@ function AdminWorkspace({
             <AdminModelEventsPanel dashboard={dashboard} />
           </div>
           <div className="admin-stack">
-            <AdminPanel
-              ingesting={ingesting}
-              ingestStatus={ingestStatus}
-              onIngest={onIngest}
-              uploading={uploading}
-              uploadStatus={uploadStatus}
-              lastUploaded={lastUploaded}
-              recentStorageEvents={dashboard?.recent_storage_events ?? []}
-              onStorageUpload={onStorageUpload}
-            />
             <LogPanel logs={logs} onRefresh={onRefresh} />
           </div>
         </div>

@@ -650,6 +650,11 @@ button:disabled {
   gap: 12px;
 }
 
+.admin-panel {
+  grid-template-columns: minmax(0, 1.08fr) minmax(340px, 0.92fr);
+  align-items: stretch;
+}
+
 .admin-dashboard {
   display: grid;
   gap: 12px;
@@ -766,7 +771,7 @@ button:disabled {
 }
 
 .storage-drop {
-  min-height: 82px;
+  min-height: 74px;
   display: grid;
   grid-template-columns: 34px minmax(0, 1fr);
   align-items: center;
@@ -808,6 +813,11 @@ button:disabled {
 .model-event-list {
   display: grid;
   gap: 8px;
+}
+
+.admin-panel .upload-event-list {
+  grid-column: 1 / -1;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
 .upload-event-list article,
@@ -1820,7 +1830,9 @@ button:disabled {
 
   .admin-kpi-strip,
   .provider-board-grid,
-  .admin-content-grid {
+  .admin-content-grid,
+  .admin-panel,
+  .admin-panel .upload-event-list {
     grid-template-columns: 1fr;
   }
 
@@ -1878,6 +1890,8 @@ button:disabled {
 
   .auth-tabs,
   .admin-placeholder dl,
+  .admin-panel,
+  .admin-panel .upload-event-list,
   .admin-row {
     grid-template-columns: 1fr;
   }
