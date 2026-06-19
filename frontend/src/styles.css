@@ -315,20 +315,6 @@ button:disabled {
   line-height: 1.5;
 }
 
-.confidence {
-  min-width: 58px;
-  min-height: 34px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  border: 1px solid rgba(0, 102, 204, 0.22);
-  border-radius: 8px;
-  color: var(--blue);
-  background: var(--blue-soft);
-  font-size: 13px;
-  font-weight: 760;
-}
-
 .ask-form {
   display: grid;
   gap: 12px;
@@ -1102,12 +1088,14 @@ button:disabled {
 
 .mail-list button {
   position: relative;
-  height: 92px;
-  min-height: 82px;
+  height: 108px;
+  min-height: 108px;
   display: grid;
-  align-content: center;
-  gap: 5px;
-  padding: 10px 12px 10px 14px;
+  grid-template-rows: auto minmax(40px, auto) auto;
+  align-content: start;
+  gap: 6px;
+  min-width: 0;
+  padding: 12px 12px 12px 14px;
   text-align: left;
   background: var(--surface-subtle);
   box-shadow: none;
@@ -1137,10 +1125,15 @@ button:disabled {
 .mail-list strong {
   display: -webkit-box;
   overflow: hidden;
+  min-width: 0;
+  max-width: 100%;
   color: var(--text);
   font-size: 14px;
   font-weight: 720;
-  line-height: 1.38;
+  line-height: 1.42;
+  text-overflow: ellipsis;
+  overflow-wrap: anywhere;
+  word-break: keep-all;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
 }
@@ -1513,11 +1506,6 @@ button:disabled {
 
   .chat-panel-head {
     grid-template-columns: 40px minmax(0, 1fr);
-  }
-
-  .confidence {
-    grid-column: 1 / -1;
-    width: 100%;
   }
 
   .form-row button,

@@ -492,7 +492,6 @@ function BranchWorkspace({
         <ChatPanel
           loading={loading}
           onAsk={onAsk}
-          lastResponse={response}
           userRole="branch"
           title="영업점 업무 문의"
           description="화면명, 오류 문구, 처리 상황을 함께 남겨주세요."
@@ -562,7 +561,6 @@ function ITWorkspace({
         <ChatPanel
           loading={loading}
           onAsk={onAsk}
-          lastResponse={response}
           userRole="it"
           title="IT 개발자 분석 챗봇"
           description="파일, API, 서비스, SQL, 테이블 단서까지 함께 확인합니다."

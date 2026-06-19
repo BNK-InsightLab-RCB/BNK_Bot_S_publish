@@ -1,11 +1,10 @@
 import { FormEvent, useState } from "react";
 import { Send } from "lucide-react";
-import type { ChatResponse, UserRole } from "../api";
+import type { UserRole } from "../api";
 
 interface ChatPanelProps {
   loading: boolean;
   onAsk: (question: string, userRole: UserRole) => Promise<void>;
-  lastResponse: ChatResponse | null;
   userRole: UserRole;
   title: string;
   description: string;
@@ -21,7 +20,6 @@ const defaultSamples = [
 export function ChatPanel({
   loading,
   onAsk,
-  lastResponse,
   userRole,
   title,
   description,
@@ -45,9 +43,6 @@ export function ChatPanel({
           <h2>{title}</h2>
           <p>{description}</p>
         </div>
-        <span className="confidence" title="검색 근거 기반 확신도">
-          {lastResponse ? `${Math.round(lastResponse.confidence * 100)}%` : "대기"}
-        </span>
       </div>
 
       <form onSubmit={submit} className="ask-form">
