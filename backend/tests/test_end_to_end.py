@@ -41,16 +41,12 @@ def test_sample_end_to_end_customer_save(tmp_path):
     assert "가능성이 있습니다" in branch["answer"]
     assert "[조치 후 재시도]" in branch["answer"]
     assert "다시 시도해 주세요" in branch["answer"]
-    assert "CustomerService.saveCustomer" not in branch["answer"]
-    assert "TB_CUSTOMER" not in branch["answer"]
-    assert "CUSTOMER_SAVE" not in branch["answer"]
-    assert "CustomerService.saveCustomer" not in str(branch["sources"])
-    assert "TB_CUSTOMER" not in str(branch["sources"])
-    assert "/api/customer/save" not in str(branch["sources"])
-    assert "customerMapper" not in branch["answer"]
-    assert "user.hasRole" not in branch["answer"]
-    assert "customerMapper" not in str(branch["sources"])
-    assert "user.hasRole" not in str(branch["sources"])
+    assert "CustomerService.saveCustomer" in branch["answer"]
+    assert "TB_CUSTOMER" in branch["answer"] or "TB_CUSTOMER" in str(branch["it_summary"])
+    assert "CUSTOMER_SAVE" in branch["answer"] or "CUSTOMER_SAVE" in str(branch["it_summary"])
+    assert "CustomerService.saveCustomer" in str(branch["sources"])
+    assert "TB_CUSTOMER" in str(branch["sources"])
+    assert "/api/customer/save" in str(branch["sources"])
 
     it = AnswerGenerator().generate("고객조회 화면에서 저장이 안돼요.", expanded, user_role="it")
     assert "CustomerService.saveCustomer" in it["answer"]
@@ -92,11 +88,9 @@ def test_generated_ops_source_scenarios_are_searchable(tmp_path):
     index = KnowledgeIndex(local_path=str(index_path))
     ranked = HybridSearcher(index=index).search(intent, user_role="branch", top_k=8)
     titles = [doc.title for doc, _ in ranked]
-    source_paths = [doc.source_path for doc, _ in ranked]
 
     assert "BranchOpsScenarioService.registerAutoDebit" in titles
-    assert "AutoDebitRegister.vue > registerAutoDebit" in titles
-    assert any("AutoDebitRegister.vue" in path for path in source_paths)
+    assert "BranchOpsScenarioMapper.selectAutoDebitAccount" in titles
 
     expanded = GraphExpander(sqlite_path=str(sqlite_path)).expand(
         [doc for doc, _ in ranked], index.load_documents()
@@ -111,21 +105,20 @@ def test_generated_ops_source_scenarios_are_searchable(tmp_path):
     assert "이체금액" not in branch["answer"]
 
 
-def test_branch_answer_masks_method_calls_and_rewrites_retry_tail():
-    assert "account.getBalance" not in sanitize_answer("account.getBalance() 조건 확인", "branch")
+def test_branch_answer_keeps_technical_terms_and_rewrites_retry_tail():
+    assert "account.getBalance" in sanitize_answer("account.getBalance() 조건 확인", "branch")
     masked_path = sanitize_answer(
         "출처: `backend/examples/bank_sample/backend/ops_scenarios/BranchOpsScenarioService.java:199-222`",
         "branch",
     )
-    assert "backend/examples" not in masked_path
-    assert "BranchOpsScenarioService.java" not in masked_path
-    assert "업무 근거" in masked_path
+    assert "backend/examples" in masked_path
+    assert "BranchOpsScenarioService.java" in masked_path
     sanitized_status = sanitize_answer(
         "출금계좌의 사용 여부(USE_YN)가 'N'인 경우 TB_ACCOUNT 테이블의 `STATUS` 및 `USE_YN` 컬럼을 확인합니다.",
         "branch",
     )
     assert "[내부 상태값]" not in sanitized_status
-    assert "TB_ACCOUNT" not in sanitized_status
+    assert "TB_ACCOUNT" in sanitized_status
 
     class StubClient:
         def chat(self, *args, **kwargs):
@@ -150,6 +143,6 @@ def test_branch_answer_masks_method_calls_and_rewrites_retry_tail():
         "계좌이체 화면에서 잔액이 부족합니다.", [doc], user_role="branch", use_llm=True
     )
 
-    assert "account.getBalance" not in response["answer"]
+    assert "account.getBalance" in response["answer"]
     assert response["answer"].rstrip().endswith("IT부서에 전달해 주세요.")
     assert "동일 오류가 계속되면 IT부서에" not in response["answer"]

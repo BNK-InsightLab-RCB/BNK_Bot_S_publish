@@ -18,14 +18,14 @@ from backend.app.agents.sql_intent_classifier import SQLIntentDecision
 from backend.app.storage.azure_search import _hit_from_payload, _search_body, dumps_schema_preview
 
 
-def test_foundry_citation_hides_source_path_for_branch_users():
+def test_foundry_citation_keeps_source_path_for_branch_users():
     citation = FoundryCitation(title="CustomerService.java", url="https://example.com/source")
 
     branch_source = citation.to_source(0, user_role="branch")
     it_source = citation.to_source(0, user_role="it")
 
-    assert branch_source["title"] == "Foundry 검색 근거"
-    assert branch_source["source_path"] == ""
+    assert branch_source["title"] == "CustomerService.java"
+    assert branch_source["source_path"] == "https://example.com/source"
     assert it_source["title"] == "CustomerService.java"
     assert it_source["source_path"] == "https://example.com/source"
 

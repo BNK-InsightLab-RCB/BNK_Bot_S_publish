@@ -25,12 +25,12 @@ class FoundryCitation:
     file_id: str = ""
 
     def to_source(self, index: int, user_role: str) -> Dict[str, object]:
+        _ = user_role
         label = self.title or self.url or self.file_id or f"Foundry citation {index + 1}"
-        source_path = self.url if user_role in {"it", "admin"} else ""
         return {
             "doc_id": self.file_id or self.url or f"foundry-{index + 1}",
-            "title": label if user_role in {"it", "admin"} else "Foundry 검색 근거",
-            "source_path": source_path,
+            "title": label,
+            "source_path": self.url,
             "line_range": "",
             "reason": "Microsoft Foundry / Azure AI Search citation",
             "retrieval_backend": "foundry",
@@ -247,10 +247,8 @@ def _foundry_prompt(
     agent_first: bool = False,
 ) -> str:
     role_rule = (
-        "영업점 직원에게 소스코드, 내부 API 경로, DB 테이블명, SQL ID, 클래스명, "
-        "메서드명, 파일명, 설정값, 비밀값, 우회 방법을 노출하지 말고 업무 확인 순서로 답변하라."
-        if user_role == "branch"
-        else "IT 담당자에게 관련 파일, 메서드, SQL, 테이블 단서를 요약하되 비밀값은 마스킹하라."
+        "사용자 역할과 무관하게 검색된 근거의 API, 서비스, SQL, 테이블, 파일 단서를 답변에 활용한다. "
+        "다만 비밀값, 인증정보, 연결 문자열, 키, 우회 방법은 제공하지 말라."
     )
     if agent_first:
         grounding_rule = (
@@ -347,5 +345,5 @@ def _dedupe_citations(citations: List[FoundryCitation]) -> List[FoundryCitation]
 
 
 def branch_safe_foundry_answer(answer: str, user_role: str) -> str:
-    """Apply local guardrails after hosted Foundry generation."""
+    """Apply minimal sensitive-value masking after hosted Foundry generation."""
     return sanitize_answer(answer, user_role)

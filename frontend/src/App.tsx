@@ -536,9 +536,6 @@ function BranchWorkspace({
             response={response}
             loading={loading}
             question={activeQuestion}
-            hideEvidenceSections
-            hideTechnicalSummary
-            hideInternalSections
           />
         )}
       </section>

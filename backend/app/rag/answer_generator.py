@@ -73,7 +73,7 @@ class AnswerGenerator:
         return {
             "answer": sanitized,
             "branch_guide": _branch_guide_payload(docs),
-            "it_summary": _it_summary_payload(docs) if user_role in {"it", "admin"} else {},
+            "it_summary": _it_summary_payload(docs),
             "confidence": confidence,
             "sources": self.citation_builder.build(docs, user_role),
         }
@@ -105,25 +105,21 @@ class AnswerGenerator:
                 "- 오류 문구: 화면에 표시된 문구",
             ]
         )
-        if user_role in {"it", "admin"}:
-            it = _it_summary_payload(docs)
-            answer.extend(
-                [
-                    f"- API: {it.get('api_path') or '-'}",
-                    f"- DTO: {', '.join(it.get('dto_names', [])) or '-'}",
-                    f"- 오류코드: {', '.join(it.get('error_codes', [])) or '-'}",
-                    f"- Exception: {', '.join(it.get('exception_types', [])) or '-'}",
-                    f"- Service: {it.get('service') or '-'}",
-                    f"- SQL: {', '.join(it.get('sql_ids', [])) or '-'}",
-                    f"- Table: {', '.join(it.get('tables', [])) or '-'}",
-                ]
-            )
+        it = _it_summary_payload(docs)
+        answer.extend(
+            [
+                f"- API: {it.get('api_path') or '-'}",
+                f"- DTO: {', '.join(it.get('dto_names', [])) or '-'}",
+                f"- 오류코드: {', '.join(it.get('error_codes', [])) or '-'}",
+                f"- Exception: {', '.join(it.get('exception_types', [])) or '-'}",
+                f"- Service: {it.get('service') or '-'}",
+                f"- SQL: {', '.join(it.get('sql_ids', [])) or '-'}",
+                f"- Table: {', '.join(it.get('tables', [])) or '-'}",
+            ]
+        )
         answer.extend(["", "[근거]"])
         for doc in docs[:5]:
-            if user_role in {"it", "admin"}:
-                answer.append(f"- {doc.title}: {doc.summary}")
-            else:
-                answer.append(f"- {_branch_source_label(doc)}: {_branch_source_reason(doc)}")
+            answer.append(f"- {doc.title}: {doc.summary}")
         return "\n".join(answer)
 
 
@@ -247,41 +243,6 @@ def _confidence(docs: List[KnowledgeDocument]) -> float:
     if len(docs) >= 5:
         return 0.78
     return min(0.7, 0.3 + len(docs) * 0.1)
-
-
-def _branch_source_label(doc: KnowledgeDocument) -> str:
-    if doc.screen_name:
-        return f"{doc.screen_name} 업무 규칙"
-    if doc.doc_type == "sql_mapper":
-        return "업무 데이터 조건"
-    return "업무 처리 기준"
-
-
-def _branch_source_reason(doc: KnowledgeDocument) -> str:
-    if doc.doc_type == "frontend_event":
-        messages = ", ".join(doc.error_messages)
-        return (
-            "화면 입력값 확인과 사용자 안내 메시지를 근거로 확인했습니다."
-            + (f" 표시 메시지: {messages}" if messages else "")
-        )
-    if doc.doc_type == "business_logic":
-        text = doc.searchable_text()
-        if "자동이체" in text or "AUTO_DEBIT" in text or "납부자번호" in text:
-            return "업무 처리 과정에서 출금계좌 상태, 납부자번호 형식, 출금일, 중복 등록 여부를 검증하는 근거가 있습니다."
-        if "기업뱅킹" in text or "CORP_USER" in text or "사업자번호" in text:
-            return "업무 처리 과정에서 사업자번호 상태, 관리자 승인, OTP 등록 정보, 사용자 중복 여부를 검증하는 근거가 있습니다."
-        if "계좌이체" in text or "이체금액" in text or "이체한도" in text or "잔액" in text:
-            return "업무 처리 과정에서 출금계좌 상태, 잔액, 이체금액, 이체한도, OTP 인증을 검증하는 근거가 있습니다."
-        if "전표" in text or "승인" in text:
-            return "업무 처리 과정에서 전표 상태와 승인 권한을 검증하는 근거가 있습니다."
-        return "업무 처리 과정에서 권한, 고객번호, 고객 상태를 검증하는 근거가 있습니다."
-    if doc.doc_type == "sql_mapper":
-        return "업무 데이터 조회 또는 수정 조건을 근거로 확인했습니다."
-    if doc.doc_type == "table_definition":
-        return "업무 데이터 정의를 근거로 확인했습니다."
-    if doc.branch_guide:
-        return doc.branch_guide
-    return "관련 업무 규칙을 근거로 확인했습니다."
 
 
 def _ensure_retry_section(answer: str, docs: List[KnowledgeDocument]) -> str:
