@@ -17,6 +17,7 @@ from backend.app.parsers.java_parser import JavaParser
 from backend.app.parsers.mybatis_parser import MyBatisParser
 from backend.app.parsers.sql_parser import SqlParser
 from backend.app.parsers.table_doc_parser import TableDocParser
+from backend.app.parsers.uploaded_document_parser import UploadedDocumentParser
 from backend.app.storage.azure_search import AzureSearchKnowledgeIndex
 from backend.app.storage.elastic import KnowledgeIndex
 from backend.app.storage.sqlite import SQLiteGraphStore
@@ -46,6 +47,7 @@ class IngestionPipeline:
             MyBatisParser(),
             SqlParser(),
             TableDocParser(),
+            UploadedDocumentParser(),
         ]
         self.index = KnowledgeIndex(local_path=index_path or settings.local_index_path)
         self.embedder = Embedder()

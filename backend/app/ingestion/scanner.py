@@ -20,6 +20,9 @@ EXTENSION_LANGUAGE = {
     ".xml": "xml",
     ".sql": "sql",
     ".md": "markdown",
+    ".json": "json",
+    ".pdf": "pdf",
+    ".txt": "text",
     ".csv": "csv",
     ".xlsx": "xlsx",
 }
@@ -38,7 +41,7 @@ class SourceScanner:
             language = EXTENSION_LANGUAGE.get(suffix)
             if not language:
                 continue
-            if suffix == ".xlsx":
+            if suffix in {".xlsx", ".pdf"}:
                 text = ""
             else:
                 text = path.read_text(encoding="utf-8")

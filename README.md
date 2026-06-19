@@ -24,6 +24,7 @@ sample/source repository
 - [System architecture and UI summary](docs/system-architecture-and-ui-summary.md): Azure/Foundry integration and role-based UI overview.
 - [Foundry reset runbook](docs/foundry-reset-runbook.md): recovery steps after hackathon Azure/Foundry resources are reset.
 - [Source automation judgment](docs/azure-agent-source-automation.md): Foundry OpenAPI tool and source sync automation design.
+- [Admin monitoring and KPI report](docs/admin-monitoring-kpi-report.md): administrator dashboard, local/MS monitoring, upload flow, and KPI validation plan.
 
 ## Requirements
 
@@ -179,15 +180,17 @@ Configure one server-side credential in `.env` before using the drop zone:
 AZURE_STORAGE_ACCOUNT=pjyragstore58
 AZURE_STORAGE_CONTAINER=uhihi
 AZURE_STORAGE_UPLOAD_PREFIX=source-drop
+ADMIN_UPLOAD_LOCAL_DIR=backend/examples/bank_sample/docs/admin_uploads
 AZURE_STORAGE_ACCOUNT_KEY=<storage-account-key>
 # or AZURE_STORAGE_CONNECTION_STRING=<connection-string>
 # or AZURE_STORAGE_SAS_TOKEN=<container-sas-token>
 ```
 
-The browser never receives Storage credentials. Drag-and-drop uploads are for
-source artifact storage and reset recovery; runtime chat retrieval still uses
-Azure AI Search `ops-knowledge`. After uploading new source files, run the
-ingestion/upload pipeline again to refresh the searchable index.
+The browser never receives Storage credentials. Drag-and-drop uploads are saved
+to the local sample document directory and Azure Blob Storage. Runtime chat
+retrieval still uses the local JSON/Elasticsearch index or Azure AI Search
+`ops-knowledge`, so after uploading new source files, run the ingestion/upload
+pipeline again from the admin page or CLI to refresh the searchable index.
 
 For source package batch sync, place department files under:
 

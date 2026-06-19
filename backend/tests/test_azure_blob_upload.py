@@ -32,7 +32,7 @@ def test_sas_token_parsing_removes_leading_question_mark():
     assert _sas_params("?sv=2024&sig=abc") == {"sv": "2024", "sig": "abc"}
 
 
-def test_storage_upload_endpoint_accepts_dropped_files(monkeypatch):
+def test_storage_upload_endpoint_accepts_dropped_files(tmp_path, monkeypatch):
     class FakeStorage:
         def upload_files(self, files, prefix="", overwrite=True):
             file_name, content, content_type = list(files)[0]
@@ -53,7 +53,13 @@ def test_storage_upload_endpoint_accepts_dropped_files(monkeypatch):
                 ],
             )
 
+    class FakeRuntimeStore:
+        def append_storage_upload(self, **kwargs):
+            return kwargs
+
     monkeypatch.setattr(storage_api, "AzureBlobStorage", FakeStorage)
+    monkeypatch.setattr(storage_api, "RuntimeStore", FakeRuntimeStore)
+    monkeypatch.setattr(storage_api, "_local_upload_dir", lambda: tmp_path)
     response = TestClient(app).post(
         "/api/storage/upload",
         files={"files": ("sample.txt", b"hello", "text/plain")},
@@ -65,6 +71,7 @@ def test_storage_upload_endpoint_accepts_dropped_files(monkeypatch):
     assert body["status"] == "uploaded"
     assert body["container"] == "uhihi"
     assert body["uploaded"][0]["blob_name"] == "source-drop/sample.txt"
+    assert body["uploaded"][0]["local_path"] == str(tmp_path / "sample.txt")
 
 
 def test_storage_directory_sync_uploads_manifest_and_prunes_stale_files(tmp_path, monkeypatch):

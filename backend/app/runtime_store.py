@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Dict, List
+from typing import Dict, List, Optional
 
 from backend.app.utils.hashing import stable_id
 
@@ -23,7 +23,13 @@ class RuntimeStore:
         self.ticket_path = ticket_path
         DATA_DIR.mkdir(parents=True, exist_ok=True)
 
-    def append_chat(self, question: str, user_role: str, response: Dict[str, object]) -> dict:
+    def append_chat(
+        self,
+        question: str,
+        user_role: str,
+        response: Dict[str, object],
+        duration_ms: Optional[int] = None,
+    ) -> dict:
         """Record one chat request with backend route metadata."""
         metadata = response.get("metadata", {}) if isinstance(response.get("metadata"), dict) else {}
         sources = response.get("sources", []) if isinstance(response.get("sources"), list) else []
@@ -45,9 +51,78 @@ class RuntimeStore:
             "retrieval_backend": ", ".join(retrieval_backends) or "local_json",
             "confidence": response.get("confidence", 0),
             "source_count": len(sources),
+            "duration_ms": duration_ms or metadata.get("duration_ms") or 0,
+            "answer_preview": _preview(str(response.get("answer") or ""), limit=240),
+            "source_titles": _source_titles(sources),
+            "agent_trace": metadata.get("agent_trace", []),
+            "foundry_citation_count": _foundry_source_count(sources),
             "status": "blocked"
             if metadata.get("blocked_by_safety") or metadata.get("blocked_by_scope")
             else "answered",
+        }
+        self._append(self.log_path, event)
+        return event
+
+    def append_ingest(
+        self,
+        indexed_count: int,
+        upload_azure_search: bool = False,
+        duration_ms: int = 0,
+        status: str = "completed",
+    ) -> dict:
+        """Record an ingestion/index refresh operation."""
+        event = {
+            "id": stable_id("evt", _now(), "ingest", indexed_count, upload_azure_search),
+            "timestamp": _now(),
+            "kind": "ingest",
+            "user_role": "admin",
+            "question_preview": "소스 색인 갱신",
+            "rag_provider": "admin",
+            "answer_backend": "azure_search" if upload_azure_search else "local_index",
+            "retrieval_backend": "azure_ai_search" if upload_azure_search else "local_json",
+            "confidence": 0,
+            "source_count": indexed_count,
+            "duration_ms": duration_ms,
+            "answer_preview": "",
+            "source_titles": [],
+            "agent_trace": [],
+            "foundry_citation_count": 0,
+            "status": status,
+        }
+        self._append(self.log_path, event)
+        return event
+
+    def append_storage_upload(
+        self,
+        file_names: List[str],
+        blob_names: List[str],
+        local_paths: List[str],
+        total_size: int,
+        container: str,
+        status: str = "uploaded",
+    ) -> dict:
+        """Record administrator source artifact uploads."""
+        event = {
+            "id": stable_id("evt", _now(), "storage", ",".join(file_names)),
+            "timestamp": _now(),
+            "kind": "storage",
+            "user_role": "admin",
+            "question_preview": ", ".join(file_names[:5]),
+            "rag_provider": "admin",
+            "answer_backend": "azure_blob",
+            "retrieval_backend": "local_dir, azure_blob",
+            "confidence": 0,
+            "source_count": len(file_names),
+            "duration_ms": 0,
+            "answer_preview": "",
+            "source_titles": file_names[:12],
+            "agent_trace": [],
+            "foundry_citation_count": 0,
+            "status": status,
+            "storage_container": container,
+            "storage_bytes": total_size,
+            "blob_names": blob_names[:12],
+            "local_paths": local_paths[:12],
         }
         self._append(self.log_path, event)
         return event
@@ -151,6 +226,102 @@ class RuntimeStore:
         rows = [self._normalize_ticket(row) for row in self._read(self.ticket_path)]
         return list(reversed(rows[-limit:]))
 
+    def admin_dashboard(self, limit: int = 200) -> dict:
+        """Aggregate runtime telemetry for the administrator dashboard."""
+        logs = self.list_logs(limit=limit)
+        tickets = self.list_tickets(limit=limit)
+        chat_logs = [log for log in logs if log.get("kind") == "chat"]
+        storage_logs = [log for log in logs if log.get("kind") == "storage"]
+        ingest_logs = [log for log in logs if log.get("kind") == "ingest"]
+        durations = [float(log.get("duration_ms") or 0) for log in chat_logs if log.get("duration_ms")]
+        grounded = [log for log in chat_logs if int(log.get("source_count") or 0) > 0]
+        cloud_logs = [log for log in chat_logs if _is_cloud_route(log)]
+        blocked = [log for log in chat_logs if log.get("status") == "blocked"]
+        total_storage_bytes = sum(int(log.get("storage_bytes") or 0) for log in storage_logs)
+        return {
+            "generated_at": _now(),
+            "window_log_count": len(logs),
+            "totals": {
+                "chat_count": len(chat_logs),
+                "ticket_count": len(tickets),
+                "open_ticket_count": len(
+                    [ticket for ticket in tickets if ticket.get("status") not in {"replied", "closed"}]
+                ),
+                "cloud_answer_count": len(cloud_logs),
+                "local_answer_count": max(0, len(chat_logs) - len(cloud_logs)),
+                "storage_upload_count": len(storage_logs),
+                "storage_uploaded_bytes": total_storage_bytes,
+                "ingest_count": len(ingest_logs),
+                "avg_duration_ms": round(sum(durations) / len(durations), 1) if durations else 0,
+                "avg_source_count": round(
+                    sum(int(log.get("source_count") or 0) for log in chat_logs) / len(chat_logs), 1
+                )
+                if chat_logs
+                else 0,
+            },
+            "kpis": [
+                _kpi(
+                    "근거 포함률",
+                    _ratio(len(grounded), len(chat_logs)),
+                    "답변 로그 중 1개 이상 근거가 붙은 비율",
+                    "90% 이상",
+                    "소스/검색 연결 누락 여부 검증",
+                ),
+                _kpi(
+                    "클라우드 경로 사용률",
+                    _ratio(len(cloud_logs), len(chat_logs)),
+                    "Foundry 또는 Azure AI Search를 거친 답변 비율",
+                    "데모 모드 60% 이상",
+                    "MS 경로 전환과 fallback 동작 검증",
+                ),
+                _kpi(
+                    "차단/범위외 비율",
+                    _ratio(len(blocked), len(chat_logs)),
+                    "무관 질문, 보안 위험 질문 차단 비율",
+                    "업무 외 질문 100% 차단",
+                    "역할별 guardrail 회귀 테스트",
+                ),
+                _kpi(
+                    "미해결 쪽지",
+                    str(len([ticket for ticket in tickets if ticket.get("status") not in {"replied", "closed"}])),
+                    "IT 답장이 필요한 영업점 쪽지 수",
+                    "운영 중 0건 유지",
+                    "쪽지 처리 SLA 모니터링",
+                ),
+            ],
+            "route_counts": _count_by(chat_logs, "answer_backend"),
+            "retrieval_counts": _count_multi(chat_logs, "retrieval_backend"),
+            "role_counts": _count_by(chat_logs, "user_role"),
+            "recent_model_events": [
+                {
+                    "id": log.get("id", ""),
+                    "timestamp": log.get("timestamp", ""),
+                    "role": log.get("user_role", "unknown"),
+                    "question_preview": log.get("question_preview", ""),
+                    "answer_preview": log.get("answer_preview", ""),
+                    "answer_backend": log.get("answer_backend", ""),
+                    "retrieval_backend": log.get("retrieval_backend", ""),
+                    "duration_ms": log.get("duration_ms", 0),
+                    "source_count": log.get("source_count", 0),
+                    "source_titles": log.get("source_titles", []),
+                    "agent_trace": log.get("agent_trace", []),
+                }
+                for log in chat_logs[:10]
+            ],
+            "recent_storage_events": [
+                {
+                    "id": log.get("id", ""),
+                    "timestamp": log.get("timestamp", ""),
+                    "files": log.get("source_titles", []),
+                    "blob_names": log.get("blob_names", []),
+                    "local_paths": log.get("local_paths", []),
+                    "bytes": log.get("storage_bytes", 0),
+                    "status": log.get("status", ""),
+                }
+                for log in storage_logs[:8]
+            ],
+        }
+
     def _append(self, path: Path, item: dict) -> None:
         rows = self._read(path)
         rows.append(item)
@@ -192,6 +363,65 @@ def _now() -> str:
 def _preview(text: str, limit: int = 140) -> str:
     compact = " ".join((text or "").split())
     return compact[:limit]
+
+
+def _source_titles(sources: List[object]) -> List[str]:
+    titles: List[str] = []
+    for source in sources[:12]:
+        if isinstance(source, dict):
+            title = str(source.get("title") or source.get("source_path") or "")
+            if title:
+                titles.append(title)
+    return titles
+
+
+def _foundry_source_count(sources: List[object]) -> int:
+    return len(
+        [
+            source
+            for source in sources
+            if isinstance(source, dict) and str(source.get("retrieval_backend") or "") == "foundry"
+        ]
+    )
+
+
+def _is_cloud_route(log: dict) -> bool:
+    return str(log.get("answer_backend") or "") == "foundry" or "azure" in str(
+        log.get("retrieval_backend") or ""
+    ).lower()
+
+
+def _ratio(part: int, total: int) -> str:
+    if total <= 0:
+        return "0%"
+    return f"{round(part / total * 100)}%"
+
+
+def _kpi(name: str, value: str, description: str, target: str, verification: str) -> dict:
+    return {
+        "name": name,
+        "value": value,
+        "description": description,
+        "target": target,
+        "verification": verification,
+    }
+
+
+def _count_by(logs: List[dict], key: str) -> List[dict]:
+    counts: Dict[str, int] = {}
+    for log in logs:
+        label = str(log.get(key) or "-")
+        counts[label] = counts.get(label, 0) + 1
+    return [{"label": label, "count": count} for label, count in sorted(counts.items())]
+
+
+def _count_multi(logs: List[dict], key: str) -> List[dict]:
+    counts: Dict[str, int] = {}
+    for log in logs:
+        labels = [part.strip() for part in str(log.get(key) or "-").split(",") if part.strip()]
+        for label in labels or ["-"]:
+            counts[label] = counts.get(label, 0) + 1
+    return [{"label": label, "count": count} for label, count in sorted(counts.items())]
 
 
 def _safe_sources(value: object) -> List[dict]:

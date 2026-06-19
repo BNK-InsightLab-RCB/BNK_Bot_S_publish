@@ -92,6 +92,7 @@ class Settings:
     azure_storage_connection_string: str = ""
     azure_storage_sas_token: str = ""
     azure_storage_upload_prefix: str = "source-drop"
+    admin_upload_local_dir: str = "backend/examples/bank_sample/docs/admin_uploads"
     foundry_project_endpoint: str = ""
     foundry_model_deployment: str = "gpt-4.1-mini"
     foundry_api_key: str = ""
@@ -186,6 +187,11 @@ def load_settings() -> Settings:
         azure_storage_sas_token=_get("AZURE_STORAGE_SAS_TOKEN", "", dotenv_values),
         azure_storage_upload_prefix=_get(
             "AZURE_STORAGE_UPLOAD_PREFIX", "source-drop", dotenv_values
+        ),
+        admin_upload_local_dir=_get(
+            "ADMIN_UPLOAD_LOCAL_DIR",
+            "backend/examples/bank_sample/docs/admin_uploads",
+            dotenv_values,
         ),
         foundry_project_endpoint=_get("FOUNDRY_PROJECT_ENDPOINT", "", dotenv_values),
         foundry_model_deployment=_get("FOUNDRY_MODEL_DEPLOYMENT", "gpt-4.1-mini", dotenv_values),

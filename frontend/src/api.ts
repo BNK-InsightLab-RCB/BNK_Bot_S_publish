@@ -66,7 +66,7 @@ export interface HealthResponse {
 export interface RuntimeLog {
   id: string;
   timestamp: string;
-  kind: "chat" | "ticket";
+  kind: "chat" | "ticket" | "storage" | "ingest";
   user_role: UserRole | "unknown";
   question_preview: string;
   rag_provider: string;
@@ -74,6 +74,9 @@ export interface RuntimeLog {
   retrieval_backend: string;
   confidence: number;
   source_count: number;
+  duration_ms?: number;
+  answer_preview?: string;
+  source_titles?: string[];
   status: string;
 }
 
@@ -127,12 +130,92 @@ export interface StorageUploadItem {
   blob_name: string;
   url: string;
   size: number;
+  local_path?: string;
 }
 
 export interface StorageUploadResponse {
   status: string;
   container: string;
   uploaded: StorageUploadItem[];
+}
+
+export interface AdminKpi {
+  name: string;
+  value: string;
+  description: string;
+  target: string;
+  verification: string;
+}
+
+export interface AdminCountItem {
+  label: string;
+  count: number;
+}
+
+export interface AdminModelEvent {
+  id: string;
+  timestamp: string;
+  role: string;
+  question_preview: string;
+  answer_preview: string;
+  answer_backend: string;
+  retrieval_backend: string;
+  duration_ms: number;
+  source_count: number;
+  source_titles: string[];
+  agent_trace: string[];
+}
+
+export interface AdminStorageEvent {
+  id: string;
+  timestamp: string;
+  files: string[];
+  blob_names: string[];
+  local_paths: string[];
+  bytes: number;
+  status: string;
+}
+
+export interface AdminDashboard {
+  generated_at: string;
+  window_log_count: number;
+  totals: {
+    chat_count: number;
+    ticket_count: number;
+    open_ticket_count: number;
+    cloud_answer_count: number;
+    local_answer_count: number;
+    storage_upload_count: number;
+    storage_uploaded_bytes: number;
+    ingest_count: number;
+    avg_duration_ms: number;
+    avg_source_count: number;
+  };
+  kpis: AdminKpi[];
+  route_counts: AdminCountItem[];
+  retrieval_counts: AdminCountItem[];
+  role_counts: AdminCountItem[];
+  recent_model_events: AdminModelEvent[];
+  recent_storage_events: AdminStorageEvent[];
+  azure: {
+    route: string;
+    azure_search_configured: boolean;
+    foundry_configured: boolean;
+    foundry_search_tool_configured: boolean;
+    storage_configured: boolean;
+    search_index: string;
+    storage_container: string;
+    foundry_model: string;
+  };
+  local: {
+    index_name: string;
+    local_index_path: string;
+    local_index_count: number;
+    upload_dir: string;
+    llm_model: string;
+    llm_chat_enabled: boolean;
+  };
+  monitoring_notes: string[];
 }
 
 export async function signupUser(input: {
@@ -210,7 +293,9 @@ export async function getHealth(): Promise<HealthResponse> {
   return response.json();
 }
 
-export async function ingestSample(): Promise<{ status: string; indexed_count: number }> {
+export async function ingestSample(
+  uploadAzureSearch = false,
+): Promise<{ status: string; indexed_count: number }> {
   const response = await apiFetch("/api/ingest/run", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -218,6 +303,7 @@ export async function ingestSample(): Promise<{ status: string; indexed_count: n
       source_dir: "backend/examples/bank_sample",
       reset_index: true,
       generate_summaries: false,
+      upload_azure_search: uploadAzureSearch,
     }),
   });
   if (!response.ok) {
@@ -313,6 +399,14 @@ export async function getRuntimeLogs(): Promise<RuntimeLog[]> {
   }
   const body = (await response.json()) as { logs: RuntimeLog[] };
   return body.logs;
+}
+
+export async function getAdminDashboard(): Promise<AdminDashboard> {
+  const response = await apiFetch("/api/admin/dashboard");
+  if (!response.ok) {
+    throw new Error(await errorMessage(response, "관리자 대시보드를 불러오지 못했습니다."));
+  }
+  return response.json();
 }
 
 async function apiFetch(path: string, init?: RequestInit): Promise<Response> {

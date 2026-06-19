@@ -1,12 +1,15 @@
 import { ChangeEvent, DragEvent, useRef, useState } from "react";
-import { DatabaseZap, RotateCw, UploadCloud } from "lucide-react";
+import { CloudUpload, DatabaseZap, RotateCw, UploadCloud } from "lucide-react";
+import type { AdminStorageEvent, StorageUploadItem } from "../api";
 
 interface AdminPanelProps {
   ingesting: boolean;
   ingestStatus: string;
-  onIngest: () => Promise<void>;
+  onIngest: (uploadAzureSearch?: boolean) => Promise<void>;
   uploading: boolean;
   uploadStatus: string;
+  lastUploaded: StorageUploadItem[];
+  recentStorageEvents: AdminStorageEvent[];
   onStorageUpload: (files: File[]) => Promise<void>;
 }
 
@@ -16,6 +19,8 @@ export function AdminPanel({
   onIngest,
   uploading,
   uploadStatus,
+  lastUploaded,
+  recentStorageEvents,
   onStorageUpload,
 }: AdminPanelProps) {
   const inputRef = useRef<HTMLInputElement | null>(null);
@@ -43,13 +48,24 @@ export function AdminPanel({
     <section className="panel admin-panel">
       <div className="admin-row">
         <div>
-          <h2>소스 색인</h2>
-          <p>{ingestStatus || "대기 중"}</p>
+          <h2>소스 색인 / Azure 반영</h2>
+          <p>{ingestStatus || "로컬 색인과 Azure AI Search 반영을 선택해서 실행합니다."}</p>
         </div>
-        <button type="button" onClick={onIngest} disabled={ingesting} title="샘플 색인 실행">
-          {ingesting ? <RotateCw size={18} aria-hidden="true" /> : <DatabaseZap size={18} aria-hidden="true" />}
-          <span>{ingesting ? "실행 중" : "샘플 색인"}</span>
-        </button>
+        <div className="admin-button-group">
+          <button type="button" onClick={() => void onIngest(false)} disabled={ingesting} title="로컬 색인 실행">
+            {ingesting ? <RotateCw size={18} aria-hidden="true" /> : <DatabaseZap size={18} aria-hidden="true" />}
+            <span>{ingesting ? "실행 중" : "로컬 색인"}</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => void onIngest(true)}
+            disabled={ingesting}
+            title="로컬 색인 후 Azure AI Search 업로드"
+          >
+            <CloudUpload size={18} aria-hidden="true" />
+            <span>Azure Search</span>
+          </button>
+        </div>
       </div>
       <div
         className={`storage-drop${dragging ? " is-dragging" : ""}`}
@@ -70,10 +86,31 @@ export function AdminPanel({
       >
         <UploadCloud size={20} aria-hidden="true" />
         <div>
-          <strong>{uploading ? "업로드 중" : "소스/PDF 업로드"}</strong>
-          <p>{uploadStatus || "파일을 놓거나 선택"}</p>
+          <strong>{uploading ? "업로드 중" : "JSON/PDF/소스 업로드"}</strong>
+          <p>{uploadStatus || "파일을 놓으면 로컬 테스트 문서 폴더와 Azure Blob Storage에 함께 저장됩니다."}</p>
         </div>
-        <input ref={inputRef} type="file" multiple onChange={handleFileChange} />
+        <input
+          ref={inputRef}
+          type="file"
+          multiple
+          accept=".json,.pdf,.md,.csv,.xlsx,.txt,.java,.xml,.vue,.sql"
+          onChange={handleFileChange}
+        />
+      </div>
+      <div className="upload-event-list">
+        {(lastUploaded.length > 0 ? lastUploaded : recentStorageEvents[0]?.files.map((file, index) => ({
+          file_name: file,
+          blob_name: recentStorageEvents[0]?.blob_names[index] ?? "",
+          url: "",
+          size: 0,
+          local_path: recentStorageEvents[0]?.local_paths[index] ?? "",
+        })) ?? []).slice(0, 4).map((item) => (
+          <article key={`${item.file_name}-${item.blob_name}`}>
+            <strong>{item.file_name}</strong>
+            <span>{item.local_path || "local 저장 대기"}</span>
+            <small>{item.blob_name || "Azure Blob 기록 대기"}</small>
+          </article>
+        ))}
       </div>
     </section>
   );

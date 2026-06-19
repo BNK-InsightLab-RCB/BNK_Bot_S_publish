@@ -1,10 +1,12 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import {
   Activity,
+  BarChart3,
   Bot,
   Cloud,
   Code2,
   Database,
+  Gauge,
   IdCard,
   Inbox,
   LockKeyhole,
@@ -14,12 +16,14 @@ import {
   Reply,
   Search,
   Shield,
+  UploadCloud,
   UserPlus,
   Users,
 } from "lucide-react";
 import {
   askQuestion,
   createSupportTicket,
+  getAdminDashboard,
   getHealth,
   getRuntimeLogs,
   getSupportTickets,
@@ -28,11 +32,13 @@ import {
   replySupportTicket,
   signupUser,
   uploadFilesToStorage,
+  type AdminDashboard,
   type AuthUser,
   type ChatResponse,
   type HealthResponse,
   type RoleCode,
   type RuntimeLog,
+  type StorageUploadItem,
   type SourceCitation,
   type SupportTicket,
   type UserRole,
@@ -77,6 +83,8 @@ export default function App() {
   const [ticketStatus, setTicketStatus] = useState("");
   const [logs, setLogs] = useState<RuntimeLog[]>([]);
   const [tickets, setTickets] = useState<SupportTicket[]>([]);
+  const [adminDashboard, setAdminDashboard] = useState<AdminDashboard | null>(null);
+  const [lastUploaded, setLastUploaded] = useState<StorageUploadItem[]>([]);
   const [selectedTicketId, setSelectedTicketId] = useState("");
   const [error, setError] = useState("");
 
@@ -114,12 +122,14 @@ export default function App() {
   }
 
   async function refreshRuntime() {
-    const [nextLogs, nextTickets] = await Promise.all([
+    const [nextLogs, nextTickets, nextDashboard] = await Promise.all([
       getRuntimeLogs().catch(() => []),
       getSupportTickets().catch(() => []),
+      getAdminDashboard().catch(() => null),
     ]);
     setLogs(nextLogs);
     setTickets(nextTickets);
+    setAdminDashboard(nextDashboard);
   }
 
   async function handleAsk(question: string, userRole: UserRole) {
@@ -140,12 +150,14 @@ export default function App() {
     }
   }
 
-  async function handleIngest() {
+  async function handleIngest(uploadAzureSearch = false) {
     setIngesting(true);
     setError("");
     try {
-      const result = await ingestSample();
-      setIngestStatus(`${result.status} / ${result.indexed_count} docs`);
+      const result = await ingestSample(uploadAzureSearch);
+      setIngestStatus(
+        `${result.status} / ${result.indexed_count} docs${uploadAzureSearch ? " / Azure Search" : ""}`,
+      );
       setBackendOnline(true);
       await refreshRuntime();
     } catch (event) {
@@ -162,6 +174,7 @@ export default function App() {
       const result = await uploadFilesToStorage(files);
       const uploadedSize = result.uploaded.reduce((total, item) => total + item.size, 0);
       setUploadStatus(`${result.uploaded.length} files / ${(uploadedSize / 1024).toFixed(1)} KiB`);
+      setLastUploaded(result.uploaded);
       await refreshRuntime();
     } catch (event) {
       setError(event instanceof Error ? event.message : "storage upload failed");
@@ -286,6 +299,8 @@ export default function App() {
           session={session}
           logs={logs}
           tickets={tickets}
+          dashboard={adminDashboard}
+          lastUploaded={lastUploaded}
           ingesting={ingesting}
           ingestStatus={ingestStatus}
           uploading={uploading}
@@ -584,6 +599,8 @@ function AdminWorkspace({
   session,
   logs,
   tickets,
+  dashboard,
+  lastUploaded,
   ingesting,
   ingestStatus,
   uploading,
@@ -595,50 +612,228 @@ function AdminWorkspace({
   session: AuthUser;
   logs: RuntimeLog[];
   tickets: SupportTicket[];
+  dashboard: AdminDashboard | null;
+  lastUploaded: StorageUploadItem[];
   ingesting: boolean;
   ingestStatus: string;
   uploading: boolean;
   uploadStatus: string;
-  onIngest: () => Promise<void>;
+  onIngest: (uploadAzureSearch?: boolean) => Promise<void>;
   onStorageUpload: (files: File[]) => Promise<void>;
   onRefresh: () => Promise<void>;
 }) {
+  const totals = dashboard?.totals;
   return (
     <div className="workspace admin-layout">
-      <section className="chat-workspace">
-        <section className="panel admin-placeholder">
-          <div className="panel-title">
-            <Shield size={19} aria-hidden="true" />
-            <h2>관리자 콘솔</h2>
+      <section className="admin-dashboard">
+        <section className="panel admin-command">
+          <div>
+            <span className="eyebrow">Admin Control Plane</span>
+            <h2>운영 모니터링 대시보드</h2>
+            <p>
+              로컬 Qwen 경로와 Microsoft Foundry/Azure 경로를 같은 기준으로 기록하고,
+              업로드·색인·쪽지 처리 상태를 한 화면에서 확인합니다.
+            </p>
           </div>
+          <div className="admin-command-actions">
+            <span className="status-pill">{session.real_name} · {session.role_code}</span>
+            <button type="button" onClick={() => void onRefresh()} title="대시보드 새로고침">
+              새로고침
+            </button>
+          </div>
+        </section>
+        <section className="admin-kpi-strip" aria-label="관리자 KPI">
+          <MetricTile icon={<Bot size={18} />} label="총 답변" value={String(totals?.chat_count ?? 0)} />
+          <MetricTile
+            icon={<Cloud size={18} />}
+            label="MS 클라우드"
+            value={String(totals?.cloud_answer_count ?? 0)}
+          />
+          <MetricTile
+            icon={<Database size={18} />}
+            label="로컬 답변"
+            value={String(totals?.local_answer_count ?? 0)}
+          />
+          <MetricTile
+            icon={<Gauge size={18} />}
+            label="평균 응답"
+            value={`${Math.round(totals?.avg_duration_ms ?? 0)}ms`}
+          />
+          <MetricTile
+            icon={<Mail size={18} />}
+            label="미해결 쪽지"
+            value={String(totals?.open_ticket_count ?? tickets.length)}
+          />
+          <MetricTile
+            icon={<UploadCloud size={18} />}
+            label="업로드"
+            value={formatBytes(totals?.storage_uploaded_bytes ?? 0)}
+          />
+        </section>
+        <div className="admin-main-grid">
+          <AdminRoutePanel dashboard={dashboard} />
+          <AdminKpiPanel dashboard={dashboard} />
+          <AdminPanel
+            ingesting={ingesting}
+            ingestStatus={ingestStatus}
+            onIngest={onIngest}
+            uploading={uploading}
+            uploadStatus={uploadStatus}
+            lastUploaded={lastUploaded}
+            recentStorageEvents={dashboard?.recent_storage_events ?? []}
+            onStorageUpload={onStorageUpload}
+          />
+        </div>
+        <div className="admin-observe-grid">
+          <AdminModelEventsPanel dashboard={dashboard} />
+          <LogPanel logs={logs} onRefresh={onRefresh} />
+        </div>
+      </section>
+    </div>
+  );
+}
+
+function MetricTile({
+  icon,
+  label,
+  value,
+}: {
+  icon: JSX.Element;
+  label: string;
+  value: string;
+}) {
+  return (
+    <article className="metric-tile">
+      <span aria-hidden="true">{icon}</span>
+      <div>
+        <small>{label}</small>
+        <strong>{value}</strong>
+      </div>
+    </article>
+  );
+}
+
+function AdminRoutePanel({ dashboard }: { dashboard: AdminDashboard | null }) {
+  const azure = dashboard?.azure;
+  const local = dashboard?.local;
+  return (
+    <section className="panel admin-route-panel">
+      <div className="panel-title">
+        <Shield size={19} aria-hidden="true" />
+        <h2>로컬 / MS Azure 경로</h2>
+      </div>
+      <div className="route-lanes">
+        <article>
+          <header>
+            <Database size={18} aria-hidden="true" />
+            <strong>Local Qwen</strong>
+          </header>
           <dl>
             <div>
-              <dt>사용자</dt>
-              <dd>{session.real_name}</dd>
+              <dt>모델</dt>
+              <dd>{local?.llm_model ?? "Qwen/Qwen3-14B-MLX-4bit"}</dd>
             </div>
             <div>
-              <dt>권한코드</dt>
-              <dd>{session.role_code}</dd>
+              <dt>지식문서</dt>
+              <dd>{local?.local_index_count ?? 0} docs</dd>
             </div>
             <div>
-              <dt>접수 쪽지</dt>
-              <dd>{tickets.length}</dd>
+              <dt>업로드 폴더</dt>
+              <dd>{local?.upload_dir ?? "-"}</dd>
             </div>
           </dl>
-        </section>
-        <AdminPanel
-          ingesting={ingesting}
-          ingestStatus={ingestStatus}
-          onIngest={onIngest}
-          uploading={uploading}
-          uploadStatus={uploadStatus}
-          onStorageUpload={onStorageUpload}
-        />
-      </section>
-      <aside className="ops-rail">
-        <LogPanel logs={logs} onRefresh={onRefresh} />
-      </aside>
-    </div>
+        </article>
+        <article>
+          <header>
+            <Cloud size={18} aria-hidden="true" />
+            <strong>Microsoft Azure</strong>
+          </header>
+          <dl>
+            <div>
+              <dt>Foundry</dt>
+              <dd>{azure?.foundry_configured ? azure.foundry_model : "미설정"}</dd>
+            </div>
+            <div>
+              <dt>AI Search</dt>
+              <dd>{azure?.azure_search_configured ? azure.search_index : "미설정"}</dd>
+            </div>
+            <div>
+              <dt>Storage</dt>
+              <dd>{azure?.storage_configured ? azure.storage_container : "미설정"}</dd>
+            </div>
+          </dl>
+        </article>
+      </div>
+      <div className="route-counts">
+        {(dashboard?.route_counts ?? []).map((item) => (
+          <span key={item.label}>
+            {routeLabel(item.label)} {item.count}
+          </span>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function AdminKpiPanel({ dashboard }: { dashboard: AdminDashboard | null }) {
+  return (
+    <section className="panel admin-kpi-panel">
+      <div className="panel-title">
+        <BarChart3 size={19} aria-hidden="true" />
+        <h2>KPI 검증</h2>
+      </div>
+      <div className="kpi-list">
+        {(dashboard?.kpis ?? []).map((kpi) => (
+          <article key={kpi.name}>
+            <div>
+              <strong>{kpi.value}</strong>
+              <span>{kpi.name}</span>
+            </div>
+            <p>{kpi.description}</p>
+            <small>
+              목표 {kpi.target} · 검증 {kpi.verification}
+            </small>
+          </article>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function AdminModelEventsPanel({ dashboard }: { dashboard: AdminDashboard | null }) {
+  const events = dashboard?.recent_model_events ?? [];
+  return (
+    <section className="panel model-events-panel">
+      <div className="panel-title">
+        <Activity size={19} aria-hidden="true" />
+        <h2>답변 생성 / 참조 로그</h2>
+      </div>
+      {events.length === 0 ? (
+        <p className="empty-text">아직 답변 로그가 없습니다.</p>
+      ) : (
+        <div className="model-event-list">
+          {events.map((event) => (
+            <article key={event.id}>
+              <header>
+                <span>{formatTime(event.timestamp)}</span>
+                <strong>{routeLabel(event.answer_backend)}</strong>
+                <small>{event.duration_ms ? `${event.duration_ms}ms` : "-"}</small>
+              </header>
+              <p>{event.question_preview}</p>
+              {event.answer_preview && <blockquote>{event.answer_preview}</blockquote>}
+              <div className="source-chip-row">
+                {(event.source_titles ?? []).slice(0, 4).map((title) => (
+                  <span key={title}>{title}</span>
+                ))}
+              </div>
+              {event.agent_trace?.length > 0 && (
+                <small className="trace-line">{event.agent_trace.slice(-2).join(" / ")}</small>
+              )}
+            </article>
+          ))}
+        </div>
+      )}
+    </section>
   );
 }
 
@@ -1213,4 +1408,11 @@ function formatTime(value: string) {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return "-";
   return date.toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit" });
+}
+
+function formatBytes(value: number) {
+  if (!value) return "0 B";
+  if (value < 1024) return `${value} B`;
+  if (value < 1024 * 1024) return `${(value / 1024).toFixed(1)} KiB`;
+  return `${(value / 1024 / 1024).toFixed(1)} MiB`;
 }

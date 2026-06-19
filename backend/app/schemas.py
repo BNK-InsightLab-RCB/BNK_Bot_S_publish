@@ -91,6 +91,7 @@ class StorageUploadItem(BaseModel):
     blob_name: str
     url: str
     size: int
+    local_path: Optional[str] = None
 
 
 class StorageUploadResponse(BaseModel):

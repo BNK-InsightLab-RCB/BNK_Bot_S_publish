@@ -50,3 +50,35 @@ def test_runtime_store_adds_ticket_reply(tmp_path):
     assert updated["sources"][0]["title"] == "CustomerService.save"
     assert updated["replies"][0]["body"] == "권한 부여 상태를 확인했습니다."
     assert store.list_tickets()[0]["sender_employee_id"] == "B001"
+
+
+def test_runtime_store_admin_dashboard_counts_routes(tmp_path):
+    store = RuntimeStore(
+        log_path=tmp_path / "runtime_events.json",
+        ticket_path=tmp_path / "support_tickets.json",
+    )
+    store.append_chat(
+        "자동이체 등록 오류",
+        "it",
+        {
+            "answer": "가능 원인 확인",
+            "confidence": 0.7,
+            "metadata": {"answer_backend": "foundry", "rag_provider": "multi_agent"},
+            "sources": [{"title": "자동이체 업무 규칙", "retrieval_backend": "azure_ai_search"}],
+        },
+        duration_ms=1234,
+    )
+    store.append_storage_upload(
+        file_names=["rules.json"],
+        blob_names=["source-drop/rules.json"],
+        local_paths=["backend/examples/bank_sample/docs/admin_uploads/rules.json"],
+        total_size=100,
+        container="uhihi",
+    )
+
+    dashboard = store.admin_dashboard()
+
+    assert dashboard["totals"]["chat_count"] == 1
+    assert dashboard["totals"]["cloud_answer_count"] == 1
+    assert dashboard["totals"]["storage_uploaded_bytes"] == 100
+    assert dashboard["recent_model_events"][0]["answer_backend"] == "foundry"
