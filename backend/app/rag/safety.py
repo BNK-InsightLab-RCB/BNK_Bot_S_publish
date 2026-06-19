@@ -27,6 +27,43 @@ BRANCH_FORBIDDEN_PATTERNS = [
     re.compile(r"내부\s*(로직|구현|경로|파일|설정)"),
 ]
 
+BRANCH_SCOPE_TERMS = {
+    "업무",
+    "화면",
+    "오류",
+    "문구",
+    "저장",
+    "조회",
+    "등록",
+    "수정",
+    "승인",
+    "발급",
+    "변경",
+    "해제",
+    "연장",
+    "환매",
+    "송금",
+    "권한",
+    "고객",
+    "계좌",
+    "전표",
+    "이체",
+    "자동이체",
+    "납부자",
+    "출금",
+    "입금",
+    "잔액",
+    "카드",
+    "대출",
+    "펀드",
+    "외화",
+    "현금",
+    "인증",
+    "한도",
+    "해지",
+    "휴면",
+}
+
 
 def is_forbidden_question(question: str, user_role: str = "branch") -> bool:
     """Return true when the question requests disallowed guidance."""
@@ -35,6 +72,16 @@ def is_forbidden_question(question: str, user_role: str = "branch") -> bool:
     if user_role == "branch":
         return any(pattern.search(question) for pattern in BRANCH_FORBIDDEN_PATTERNS)
     return False
+
+
+def is_out_of_scope_question(question: str, user_role: str = "branch") -> bool:
+    """Return true when a branch question is unrelated to branch operations."""
+    if user_role != "branch":
+        return False
+    normalized = question.lower()
+    if any(term.lower() in normalized for term in BRANCH_SCOPE_TERMS):
+        return False
+    return True
 
 
 def refusal_answer() -> str:
@@ -58,6 +105,28 @@ def refusal_answer() -> str:
         "[조치 후 재시도]\n"
         "위 조건을 확인한 뒤 업무 오류 내용으로 다시 문의해 주세요. "
         "동일 오류가 계속되면 화면명, 오류 문구, 발생 시각을 정리해 IT부서에 전달해 주세요."
+    )
+
+
+def out_of_scope_answer() -> str:
+    """Return a branch-safe response for unrelated questions."""
+    return (
+        "[가능한 원인]\n"
+        "이 챗봇은 영업점 업무 화면의 오류, 처리 조건, 권한 확인을 돕기 위한 도구입니다. "
+        "현재 질문은 업무 처리 근거를 찾기 어렵습니다.\n\n"
+        "[먼저 확인할 사항]\n"
+        "1. 화면명 또는 업무명을 함께 적어 주세요.\n"
+        "2. 화면에 표시된 오류 문구를 그대로 적어 주세요.\n"
+        "3. 입력한 정보와 누른 버튼을 함께 적어 주세요.\n\n"
+        "[계속 오류가 발생하는 경우]\n"
+        "업무 화면 오류가 맞다면 화면명, 오류 문구, 발생 시각을 정리해 다시 문의해 주세요.\n\n"
+        "[IT부서 전달용 정보]\n"
+        "- 화면명\n"
+        "- 수행 작업\n"
+        "- 오류 문구\n"
+        "- 발생 시각\n\n"
+        "[근거]\n"
+        "영업점 업무 지원 범위를 벗어난 질문은 답변하지 않습니다."
     )
 
 

@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, HTTPException, Query
 
 from backend.app.runtime_store import RuntimeStore
-from backend.app.schemas import SupportTicketRequest
+from backend.app.schemas import SupportTicketRequest, TicketReplyRequest
 
 
 router = APIRouter(prefix="/api/runtime", tags=["runtime"])
@@ -27,3 +27,13 @@ def support_tickets(limit: int = Query(default=80, ge=1, le=200)) -> dict:
 def create_support_ticket(request: SupportTicketRequest) -> dict:
     """Create a support ticket from the branch chatbot screen."""
     return {"ticket": RuntimeStore().create_ticket(request.model_dump())}
+
+
+@router.post("/tickets/{ticket_id}/replies")
+def reply_support_ticket(ticket_id: str, request: TicketReplyRequest) -> dict:
+    """Add a reply to a branch escalation ticket."""
+    try:
+        ticket = RuntimeStore().add_ticket_reply(ticket_id, request.model_dump())
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail="Ticket not found.") from exc
+    return {"ticket": ticket}

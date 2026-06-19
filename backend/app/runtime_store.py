@@ -45,7 +45,9 @@ class RuntimeStore:
             "retrieval_backend": ", ".join(retrieval_backends) or "local_json",
             "confidence": response.get("confidence", 0),
             "source_count": len(sources),
-            "status": "blocked" if metadata.get("blocked_by_safety") else "answered",
+            "status": "blocked"
+            if metadata.get("blocked_by_safety") or metadata.get("blocked_by_scope")
+            else "answered",
         }
         self._append(self.log_path, event)
         return event
@@ -56,9 +58,14 @@ class RuntimeStore:
         ticket = {
             "id": stable_id("ticket", _now(), question),
             "timestamp": _now(),
+            "updated_at": _now(),
             "status": "new",
             "priority": str(payload.get("priority") or "normal"),
             "screen_name": str(payload.get("screen_name") or ""),
+            "sender_name": str(payload.get("sender_name") or ""),
+            "sender_employee_id": str(payload.get("sender_employee_id") or ""),
+            "sender_role": str(payload.get("sender_role") or "branch"),
+            "sender_role_code": str(payload.get("sender_role_code") or "01"),
             "question": question,
             "summary": str(payload.get("summary") or ""),
             "answer_backend": str(payload.get("answer_backend") or ""),
@@ -66,6 +73,7 @@ class RuntimeStore:
             "retrieval_backend": str(payload.get("retrieval_backend") or ""),
             "confidence": payload.get("confidence", 0),
             "source_count": int(payload.get("source_count") or 0),
+            "replies": [],
         }
         self._append(self.ticket_path, ticket)
         self._append(
@@ -86,18 +94,64 @@ class RuntimeStore:
         )
         return ticket
 
+    def add_ticket_reply(self, ticket_id: str, payload: Dict[str, object]) -> dict:
+        """Add a reply to a support ticket and return the updated ticket."""
+        rows = [self._normalize_ticket(row) for row in self._read(self.ticket_path)]
+        for ticket in rows:
+            if ticket.get("id") != ticket_id:
+                continue
+            reply = {
+                "id": stable_id("reply", ticket_id, _now(), str(payload.get("body") or "")),
+                "timestamp": _now(),
+                "author_name": str(payload.get("author_name") or ""),
+                "author_employee_id": str(payload.get("author_employee_id") or ""),
+                "author_role": str(payload.get("author_role") or "it"),
+                "author_role_code": str(payload.get("author_role_code") or "02"),
+                "body": str(payload.get("body") or ""),
+            }
+            replies = ticket.setdefault("replies", [])
+            if isinstance(replies, list):
+                replies.append(reply)
+            else:
+                ticket["replies"] = [reply]
+            ticket["updated_at"] = reply["timestamp"]
+            ticket["status"] = "replied" if reply["author_role"] in {"it", "admin"} else "branch_updated"
+            self._write(self.ticket_path, rows)
+            self._append(
+                self.log_path,
+                {
+                    "id": stable_id("evt", reply["id"], "reply"),
+                    "timestamp": reply["timestamp"],
+                    "kind": "ticket",
+                    "user_role": reply["author_role"],
+                    "question_preview": _preview(str(ticket.get("question") or "")),
+                    "rag_provider": str(ticket.get("rag_provider") or ""),
+                    "answer_backend": str(ticket.get("answer_backend") or ""),
+                    "retrieval_backend": str(ticket.get("retrieval_backend") or ""),
+                    "confidence": ticket.get("confidence", 0),
+                    "source_count": ticket.get("source_count", 0),
+                    "status": "ticket_replied",
+                },
+            )
+            return ticket
+        raise KeyError(ticket_id)
+
     def list_logs(self, limit: int = 80) -> List[dict]:
         """Return recent runtime events newest first."""
         return list(reversed(self._read(self.log_path)[-limit:]))
 
     def list_tickets(self, limit: int = 80) -> List[dict]:
         """Return recent support tickets newest first."""
-        return list(reversed(self._read(self.ticket_path)[-limit:]))
+        rows = [self._normalize_ticket(row) for row in self._read(self.ticket_path)]
+        return list(reversed(rows[-limit:]))
 
     def _append(self, path: Path, item: dict) -> None:
         rows = self._read(path)
         rows.append(item)
-        path.write_text(json.dumps(rows[-500:], ensure_ascii=False, indent=2), encoding="utf-8")
+        self._write(path, rows[-500:])
+
+    def _write(self, path: Path, rows: List[dict]) -> None:
+        path.write_text(json.dumps(rows, ensure_ascii=False, indent=2), encoding="utf-8")
 
     def _read(self, path: Path) -> List[dict]:
         if not path.exists():
@@ -107,6 +161,17 @@ class RuntimeStore:
         except json.JSONDecodeError:
             return []
         return data if isinstance(data, list) else []
+
+    def _normalize_ticket(self, ticket: dict) -> dict:
+        normalized = dict(ticket)
+        normalized.setdefault("updated_at", normalized.get("timestamp", ""))
+        normalized.setdefault("sender_name", "")
+        normalized.setdefault("sender_employee_id", "")
+        normalized.setdefault("sender_role", "branch")
+        normalized.setdefault("sender_role_code", "01")
+        replies = normalized.get("replies")
+        normalized["replies"] = replies if isinstance(replies, list) else []
+        return normalized
 
 
 def _now() -> str:

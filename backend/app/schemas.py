@@ -101,6 +101,39 @@ class StorageUploadResponse(BaseModel):
     uploaded: List[StorageUploadItem]
 
 
+class SignupRequest(BaseModel):
+    """Demo signup request."""
+
+    real_name: str = Field(min_length=1, max_length=40)
+    employee_id: str = Field(min_length=1, max_length=40)
+    password: str = Field(min_length=4, max_length=120)
+    role_code: str = Field(pattern="^(01|02|03)$")
+
+
+class LoginRequest(BaseModel):
+    """Demo login request."""
+
+    employee_id: str = Field(min_length=1, max_length=40)
+    password: str = Field(min_length=1, max_length=120)
+
+
+class AuthUser(BaseModel):
+    """Authenticated demo user profile."""
+
+    id: str
+    real_name: str
+    employee_id: str
+    role: str = Field(pattern="^(branch|it|admin)$")
+    role_code: str = Field(pattern="^(01|02|03)$")
+    role_label: str
+
+
+class AuthResponse(BaseModel):
+    """Authentication response."""
+
+    user: AuthUser
+
+
 class SupportTicketRequest(BaseModel):
     """Branch-to-IT escalation request."""
 
@@ -108,11 +141,25 @@ class SupportTicketRequest(BaseModel):
     summary: str = ""
     screen_name: str = ""
     priority: str = "normal"
+    sender_name: str = ""
+    sender_employee_id: str = ""
+    sender_role: str = "branch"
+    sender_role_code: str = "01"
     answer_backend: str = ""
     rag_provider: str = ""
     retrieval_backend: str = ""
     confidence: float = 0
     source_count: int = 0
+
+
+class TicketReplyRequest(BaseModel):
+    """Reply to a branch-to-IT support ticket."""
+
+    body: str = Field(min_length=1, max_length=3000)
+    author_name: str = ""
+    author_employee_id: str = ""
+    author_role: str = Field(default="it", pattern="^(branch|it|admin)$")
+    author_role_code: str = Field(default="02", pattern="^(01|02|03)$")
 
 
 class HealthResponse(BaseModel):

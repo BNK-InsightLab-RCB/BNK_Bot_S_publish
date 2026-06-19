@@ -1,17 +1,22 @@
-import { useEffect, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
 import {
   Activity,
-  ArrowRight,
   Bot,
   Building2,
   Cloud,
   Code2,
   Database,
+  IdCard,
+  Inbox,
+  LockKeyhole,
   LogOut,
+  Mail,
   MessageSquarePlus,
   MonitorCog,
+  Reply,
   Search,
   Shield,
+  UserPlus,
   Users,
 } from "lucide-react";
 import {
@@ -21,10 +26,15 @@ import {
   getRuntimeLogs,
   getSupportTickets,
   ingestSample,
+  loginUser,
+  replySupportTicket,
   searchKnowledge,
+  signupUser,
   uploadFilesToStorage,
+  type AuthUser,
   type ChatResponse,
   type HealthResponse,
+  type RoleCode,
   type RuntimeLog,
   type SearchResult,
   type SupportTicket,
@@ -36,15 +46,16 @@ import { ChatPanel } from "./components/ChatPanel";
 import { SourceList } from "./components/SourceList";
 import "./styles.css";
 
-type SessionUser = {
-  role: UserRole;
-  name: string;
-};
+const roleOptions: Array<{ code: RoleCode; role: UserRole; label: string }> = [
+  { code: "01", role: "branch", label: "영업점 직원" },
+  { code: "02", role: "it", label: "IT 개발직원" },
+  { code: "03", role: "admin", label: "관리자" },
+];
 
-const userProfiles: SessionUser[] = [
-  { role: "branch", name: "영업점 행원" },
-  { role: "it", name: "IT 직원" },
-  { role: "admin", name: "관리자" },
+const branchSamples = [
+  "자동이체 등록 화면에서 출금계좌가 만료되었거나 사용 불가 상태라고 나와요. 납부자번호는 입력했습니다.",
+  "고객조회 화면에서 저장이 안돼요. 오류 문구는 저장 권한이 없다고 나옵니다.",
+  "전표승인 화면에서 승인 버튼을 눌렀는데 계속 오류가 납니다.",
 ];
 
 const itSamples = [
@@ -54,9 +65,9 @@ const itSamples = [
 ];
 
 export default function App() {
-  const [session, setSession] = useState<SessionUser | null>(() => {
+  const [session, setSession] = useState<AuthUser | null>(() => {
     const saved = localStorage.getItem("ops-rag-session");
-    return saved ? (JSON.parse(saved) as SessionUser) : null;
+    return saved ? (JSON.parse(saved) as AuthUser) : null;
   });
   const [response, setResponse] = useState<ChatResponse | null>(null);
   const [activeQuestion, setActiveQuestion] = useState("");
@@ -72,6 +83,7 @@ export default function App() {
   const [tickets, setTickets] = useState<SupportTicket[]>([]);
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
   const [searching, setSearching] = useState(false);
+  const [selectedTicketId, setSelectedTicketId] = useState("");
   const [error, setError] = useState("");
 
   useEffect(() => {
@@ -79,18 +91,20 @@ export default function App() {
     refreshRuntime();
   }, []);
 
-  function login(profile: SessionUser) {
-    setSession(profile);
+  function setAuthenticated(user: AuthUser) {
+    setSession(user);
     setResponse(null);
     setActiveQuestion("");
+    setTicketStatus("");
     setError("");
-    localStorage.setItem("ops-rag-session", JSON.stringify(profile));
+    localStorage.setItem("ops-rag-session", JSON.stringify(user));
   }
 
   function logout() {
     setSession(null);
     setResponse(null);
     setActiveQuestion("");
+    setTicketStatus("");
     localStorage.removeItem("ops-rag-session");
   }
 
@@ -163,25 +177,48 @@ export default function App() {
   }
 
   async function handleTicket() {
-    if (!response || !activeQuestion) return;
+    if (!response || !activeQuestion || !session) return;
     setTicketStatus("전송 중");
     const metadata = response.metadata ?? {};
     try {
       const ticket = await createSupportTicket({
         question: activeQuestion,
-        summary: response.branch_guide.it_contact_summary || response.answer.slice(0, 240),
+        summary: buildTicketSummary(response),
         priority: response.confidence < 0.55 ? "high" : "normal",
+        sender_name: session.real_name,
+        sender_employee_id: session.employee_id,
+        sender_role: session.role,
+        sender_role_code: session.role_code,
         answer_backend: String(metadata.answer_backend ?? ""),
         rag_provider: String(metadata.rag_provider ?? ""),
         retrieval_backend: sourceBackends(response).join(", "),
         confidence: response.confidence,
         source_count: response.sources.length,
       });
+      setSelectedTicketId(ticket.id);
       setTicketStatus(`${ticket.id} 접수`);
       await refreshRuntime();
     } catch (event) {
       setTicketStatus("");
       setError(event instanceof Error ? event.message : "IT 쪽지 생성에 실패했습니다.");
+    }
+  }
+
+  async function handleReply(ticketId: string, body: string) {
+    if (!session) return;
+    setError("");
+    try {
+      const ticket = await replySupportTicket(ticketId, {
+        body,
+        author_name: session.real_name,
+        author_employee_id: session.employee_id,
+        author_role: session.role,
+        author_role_code: session.role_code,
+      });
+      setSelectedTicketId(ticket.id);
+      await refreshRuntime();
+    } catch (event) {
+      setError(event instanceof Error ? event.message : "쪽지 답장에 실패했습니다.");
     }
   }
 
@@ -202,8 +239,19 @@ export default function App() {
   const route = useMemo(() => routeSummary(response, health), [response, health]);
 
   if (!session) {
-    return <LoginView backendOnline={backendOnline} health={health} onLogin={login} />;
+    return (
+      <LoginView
+        backendOnline={backendOnline}
+        health={health}
+        onLogin={setAuthenticated}
+        onError={setError}
+        error={error}
+      />
+    );
   }
+
+  const selectedTicket =
+    tickets.find((ticket) => ticket.id === selectedTicketId) ?? tickets[0] ?? null;
 
   return (
     <main className="app-shell">
@@ -217,40 +265,45 @@ export default function App() {
       {error && <div className="error-banner app-error">{error}</div>}
       {session.role === "branch" && (
         <BranchWorkspace
+          session={session}
           response={response}
           loading={loading}
           activeQuestion={activeQuestion}
           route={route}
           ticketStatus={ticketStatus}
+          tickets={tickets}
+          selectedTicket={selectedTicket}
           onAsk={handleAsk}
           onTicket={handleTicket}
+          onSelectTicket={setSelectedTicketId}
         />
       )}
       {session.role === "it" && (
         <ITWorkspace
+          session={session}
           response={response}
           loading={loading}
           activeQuestion={activeQuestion}
           tickets={tickets}
+          selectedTicket={selectedTicket}
           searchResults={searchResults}
           searching={searching}
           onAsk={handleAsk}
+          onReply={handleReply}
           onSearch={handleSearch}
           onRefresh={refreshRuntime}
+          onSelectTicket={setSelectedTicketId}
         />
       )}
       {session.role === "admin" && (
         <AdminWorkspace
-          response={response}
-          loading={loading}
-          activeQuestion={activeQuestion}
+          session={session}
           logs={logs}
           tickets={tickets}
           ingesting={ingesting}
           ingestStatus={ingestStatus}
           uploading={uploading}
           uploadStatus={uploadStatus}
-          onAsk={handleAsk}
           onIngest={handleIngest}
           onStorageUpload={handleStorageUpload}
           onRefresh={refreshRuntime}
@@ -264,29 +317,115 @@ function LoginView({
   backendOnline,
   health,
   onLogin,
+  onError,
+  error,
 }: {
   backendOnline: boolean;
   health: HealthResponse | null;
-  onLogin: (profile: SessionUser) => void;
+  onLogin: (profile: AuthUser) => void;
+  onError: (message: string) => void;
+  error: string;
 }) {
+  const [mode, setMode] = useState<"login" | "signup">("login");
+  const [realName, setRealName] = useState("");
+  const [employeeId, setEmployeeId] = useState("");
+  const [password, setPassword] = useState("");
+  const [roleCode, setRoleCode] = useState<RoleCode>("01");
+  const [submitting, setSubmitting] = useState(false);
+
+  async function submit(event: FormEvent) {
+    event.preventDefault();
+    setSubmitting(true);
+    onError("");
+    try {
+      const user =
+        mode === "signup"
+          ? await signupUser({
+              real_name: realName,
+              employee_id: employeeId,
+              password,
+              role_code: roleCode,
+            })
+          : await loginUser({ employee_id: employeeId, password });
+      onLogin(user);
+    } catch (submitError) {
+      onError(submitError instanceof Error ? submitError.message : "인증에 실패했습니다.");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
   return (
     <main className="login-shell">
-      <section className="login-panel">
-        <div>
+      <section className="login-panel auth-panel">
+        <div className="auth-copy">
           <span className="eyebrow">Source-Aware Ops RAG</span>
-          <h1>영업점 운영지원</h1>
+          <h1>영업점 운영지원 로그인</h1>
         </div>
-        <div className="login-grid">
-          {userProfiles.map((profile) => (
-            <button key={profile.role} type="button" onClick={() => onLogin(profile)}>
-              {profile.role === "branch" && <Building2 size={24} aria-hidden="true" />}
-              {profile.role === "it" && <MonitorCog size={24} aria-hidden="true" />}
-              {profile.role === "admin" && <Shield size={24} aria-hidden="true" />}
-              <span>{profile.name}</span>
-              <ArrowRight size={18} aria-hidden="true" />
-            </button>
-          ))}
+        <div className="auth-tabs" role="tablist" aria-label="인증 방식">
+          <button
+            type="button"
+            className={mode === "login" ? "is-active" : ""}
+            onClick={() => setMode("login")}
+          >
+            <LockKeyhole size={17} aria-hidden="true" />
+            로그인
+          </button>
+          <button
+            type="button"
+            className={mode === "signup" ? "is-active" : ""}
+            onClick={() => setMode("signup")}
+          >
+            <UserPlus size={17} aria-hidden="true" />
+            회원가입
+          </button>
         </div>
+        <form className="auth-form" onSubmit={submit}>
+          {mode === "signup" && (
+            <label>
+              실명
+              <span>
+                <Users size={17} aria-hidden="true" />
+                <input value={realName} onChange={(event) => setRealName(event.target.value)} />
+              </span>
+            </label>
+          )}
+          <label>
+            행번
+            <span>
+              <IdCard size={17} aria-hidden="true" />
+              <input value={employeeId} onChange={(event) => setEmployeeId(event.target.value)} />
+            </span>
+          </label>
+          <label>
+            비밀번호
+            <span>
+              <LockKeyhole size={17} aria-hidden="true" />
+              <input
+                type="password"
+                value={password}
+                onChange={(event) => setPassword(event.target.value)}
+              />
+            </span>
+          </label>
+          {mode === "signup" && (
+            <label>
+              권한
+              <select value={roleCode} onChange={(event) => setRoleCode(event.target.value as RoleCode)}>
+                {roleOptions.map((option) => (
+                  <option key={option.code} value={option.code}>
+                    {option.code} · {option.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
+          <button type="submit" disabled={submitting || !employeeId || !password}>
+            {mode === "signup" ? <UserPlus size={18} aria-hidden="true" /> : <LockKeyhole size={18} aria-hidden="true" />}
+            <span>{submitting ? "처리 중" : mode === "signup" ? "가입하기" : "로그인"}</span>
+          </button>
+        </form>
+        {error && <div className="error-banner auth-error">{error}</div>}
         <div className="login-status">
           <StatusPill online={backendOnline} label={backendOnline ? "Backend online" : "Backend offline"} />
           <span>{health?.rag_provider ?? "multi_agent"}</span>
@@ -303,7 +442,7 @@ function WorkspaceHeader({
   response,
   onLogout,
 }: {
-  session: SessionUser;
+  session: AuthUser;
   backendOnline: boolean;
   health: HealthResponse | null;
   response: ChatResponse | null;
@@ -313,9 +452,12 @@ function WorkspaceHeader({
     <header className="app-header">
       <div>
         <span className="eyebrow">Source-Aware Ops RAG</span>
-        <h1>{session.name} 워크스페이스</h1>
+        <h1>{workspaceTitle(session.role)}</h1>
       </div>
       <div className="status-cluster" aria-label="서비스 상태">
+        <span className="status-pill">
+          {session.real_name} · {session.employee_id} · {session.role_code}
+        </span>
         <StatusPill online={backendOnline} label={backendOnline ? "Backend online" : "Backend offline"} />
         <span className="status-pill">{health?.rag_provider ?? "multi_agent"}</span>
         <span className="status-pill">{String(response?.metadata?.answer_backend ?? "standby")}</span>
@@ -328,117 +470,147 @@ function WorkspaceHeader({
 }
 
 function BranchWorkspace({
+  session,
   response,
   loading,
   activeQuestion,
   route,
   ticketStatus,
+  tickets,
+  selectedTicket,
   onAsk,
   onTicket,
+  onSelectTicket,
 }: {
+  session: AuthUser;
   response: ChatResponse | null;
   loading: boolean;
   activeQuestion: string;
   route: RouteSummary;
   ticketStatus: string;
+  tickets: SupportTicket[];
+  selectedTicket: SupportTicket | null;
   onAsk: (question: string, userRole: UserRole) => Promise<void>;
   onTicket: () => Promise<void>;
+  onSelectTicket: (ticketId: string) => void;
 }) {
+  const myTickets = tickets.filter((ticket) => ticket.sender_employee_id === session.employee_id);
+  const selected = selectedTicket?.sender_employee_id === session.employee_id ? selectedTicket : myTickets[0] ?? null;
   return (
     <div className="workspace branch-layout">
-      <section className="chat-workspace">
+      <aside className="ops-rail left-rail">
+        <QuestionGuide />
+      </aside>
+      <section className="chat-workspace center-chat">
         <RoutePanel route={route} />
         <ChatPanel
           loading={loading}
           onAsk={onAsk}
           lastResponse={response}
           userRole="branch"
-          title="업무 오류 문의"
-          description="화면명, 오류 문구, 입력 상황을 남겨주세요."
+          title="영업점 업무 문의"
+          description="화면명, 오류 문구, 처리 상황을 함께 남겨주세요."
+          samples={branchSamples}
         />
         <AnswerView response={response} loading={loading} question={activeQuestion} />
       </section>
-      <aside className="ops-rail">
-        <BranchGuide response={response} onTicket={onTicket} ticketStatus={ticketStatus} />
+      <aside className="ops-rail right-rail">
+        <BranchMailbox
+          response={response}
+          tickets={myTickets}
+          selectedTicket={selected}
+          ticketStatus={ticketStatus}
+          onTicket={onTicket}
+          onSelectTicket={onSelectTicket}
+        />
       </aside>
     </div>
   );
 }
 
 function ITWorkspace({
+  session,
   response,
   loading,
   activeQuestion,
   tickets,
+  selectedTicket,
   searchResults,
   searching,
   onAsk,
+  onReply,
   onSearch,
   onRefresh,
+  onSelectTicket,
 }: {
+  session: AuthUser;
   response: ChatResponse | null;
   loading: boolean;
   activeQuestion: string;
   tickets: SupportTicket[];
+  selectedTicket: SupportTicket | null;
   searchResults: SearchResult[];
   searching: boolean;
   onAsk: (question: string, userRole: UserRole) => Promise<void>;
+  onReply: (ticketId: string, body: string) => Promise<void>;
   onSearch: (query: string) => Promise<void>;
   onRefresh: () => Promise<void>;
+  onSelectTicket: (ticketId: string) => void;
 }) {
   return (
     <div className="workspace it-layout">
-      <section className="chat-workspace">
+      <aside className="ops-rail mail-rail">
+        <ITMailbox
+          session={session}
+          tickets={tickets}
+          selectedTicket={selectedTicket}
+          onReply={onReply}
+          onRefresh={onRefresh}
+          onSelectTicket={onSelectTicket}
+        />
+      </aside>
+      <section className="chat-workspace it-chat">
         <ChatPanel
           loading={loading}
           onAsk={onAsk}
           lastResponse={response}
           userRole="it"
-          title="장애 원인 분석"
-          description="검색 근거와 코드 단서를 함께 확인합니다."
+          title="IT 개발자 분석 챗봇"
+          description="파일, API, 서비스, SQL, 테이블 단서까지 함께 확인합니다."
           samples={itSamples}
         />
         <AnswerView response={response} loading={loading} question={activeQuestion} />
         <SourceList sources={response?.sources ?? []} />
-      </section>
-      <aside className="ops-rail">
         <ITSearchPanel
           response={response}
           searchResults={searchResults}
           searching={searching}
           onSearch={onSearch}
         />
-        <TicketList tickets={tickets} onRefresh={onRefresh} />
-      </aside>
+      </section>
     </div>
   );
 }
 
 function AdminWorkspace({
-  response,
-  loading,
-  activeQuestion,
+  session,
   logs,
   tickets,
   ingesting,
   ingestStatus,
   uploading,
   uploadStatus,
-  onAsk,
   onIngest,
   onStorageUpload,
   onRefresh,
 }: {
-  response: ChatResponse | null;
-  loading: boolean;
-  activeQuestion: string;
+  session: AuthUser;
   logs: RuntimeLog[];
   tickets: SupportTicket[];
   ingesting: boolean;
   ingestStatus: string;
   uploading: boolean;
   uploadStatus: string;
-  onAsk: (question: string, userRole: UserRole) => Promise<void>;
   onIngest: () => Promise<void>;
   onStorageUpload: (files: File[]) => Promise<void>;
   onRefresh: () => Promise<void>;
@@ -446,6 +618,26 @@ function AdminWorkspace({
   return (
     <div className="workspace admin-layout">
       <section className="chat-workspace">
+        <section className="panel admin-placeholder">
+          <div className="panel-title">
+            <Shield size={19} aria-hidden="true" />
+            <h2>관리자 콘솔</h2>
+          </div>
+          <dl>
+            <div>
+              <dt>사용자</dt>
+              <dd>{session.real_name}</dd>
+            </div>
+            <div>
+              <dt>권한코드</dt>
+              <dd>{session.role_code}</dd>
+            </div>
+            <div>
+              <dt>접수 쪽지</dt>
+              <dd>{tickets.length}</dd>
+            </div>
+          </dl>
+        </section>
         <AdminPanel
           ingesting={ingesting}
           ingestStatus={ingestStatus}
@@ -454,21 +646,202 @@ function AdminWorkspace({
           uploadStatus={uploadStatus}
           onStorageUpload={onStorageUpload}
         />
-        <LogPanel logs={logs} onRefresh={onRefresh} />
       </section>
       <aside className="ops-rail">
-        <ChatPanel
-          loading={loading}
-          onAsk={onAsk}
-          lastResponse={response}
-          userRole="admin"
-          title="관리자 검증"
-          description="색인 상태와 응답 경로를 확인합니다."
-          samples={itSamples}
-        />
-        <AnswerView response={response} loading={loading} question={activeQuestion} />
-        <TicketList tickets={tickets} onRefresh={onRefresh} />
+        <LogPanel logs={logs} onRefresh={onRefresh} />
       </aside>
+    </div>
+  );
+}
+
+function QuestionGuide() {
+  const examples = [
+    "화면명: 자동이체 등록",
+    "오류 문구: 출금계좌 사용 불가",
+    "입력 상황: 납부자번호와 출금일 입력 완료",
+    "시도한 작업: 등록 버튼 클릭",
+  ];
+  return (
+    <section className="panel question-guide">
+      <div className="panel-title">
+        <Bot size={19} aria-hidden="true" />
+        <h2>질문 가이드</h2>
+      </div>
+      <ol>
+        {examples.map((item) => (
+          <li key={item}>{item}</li>
+        ))}
+      </ol>
+      <div className="guide-note">
+        업무 화면, 오류 문구, 입력 상태, 다시 시도한 내용을 함께 적어주세요.
+      </div>
+    </section>
+  );
+}
+
+function BranchMailbox({
+  response,
+  tickets,
+  selectedTicket,
+  ticketStatus,
+  onTicket,
+  onSelectTicket,
+}: {
+  response: ChatResponse | null;
+  tickets: SupportTicket[];
+  selectedTicket: SupportTicket | null;
+  ticketStatus: string;
+  onTicket: () => Promise<void>;
+  onSelectTicket: (ticketId: string) => void;
+}) {
+  return (
+    <section className="panel mailbox">
+      <div className="panel-title">
+        <Mail size={19} aria-hidden="true" />
+        <h2>IT 쪽지함</h2>
+      </div>
+      <button type="button" onClick={onTicket} disabled={!response} title="현재 답변 정리해서 보내기">
+        <MessageSquarePlus size={18} aria-hidden="true" />
+        <span>{ticketStatus || "현재 상황 보내기"}</span>
+      </button>
+      <TicketList
+        tickets={tickets}
+        selectedTicketId={selectedTicket?.id ?? ""}
+        emptyText="보낸 쪽지가 없습니다."
+        onSelectTicket={onSelectTicket}
+      />
+      <TicketThread ticket={selectedTicket} compact />
+    </section>
+  );
+}
+
+function ITMailbox({
+  session,
+  tickets,
+  selectedTicket,
+  onReply,
+  onRefresh,
+  onSelectTicket,
+}: {
+  session: AuthUser;
+  tickets: SupportTicket[];
+  selectedTicket: SupportTicket | null;
+  onReply: (ticketId: string, body: string) => Promise<void>;
+  onRefresh: () => Promise<void>;
+  onSelectTicket: (ticketId: string) => void;
+}) {
+  const [replyText, setReplyText] = useState("");
+
+  async function submitReply(event: FormEvent) {
+    event.preventDefault();
+    if (!selectedTicket || !replyText.trim()) return;
+    await onReply(selectedTicket.id, replyText.trim());
+    setReplyText("");
+  }
+
+  return (
+    <section className="panel mailbox it-mailbox">
+      <div className="table-head">
+        <div className="panel-title">
+          <Inbox size={19} aria-hidden="true" />
+          <h2>영업점 쪽지</h2>
+        </div>
+        <button type="button" onClick={() => void onRefresh()}>
+          새로고침
+        </button>
+      </div>
+      <TicketList
+        tickets={tickets}
+        selectedTicketId={selectedTicket?.id ?? ""}
+        emptyText="접수된 쪽지가 없습니다."
+        onSelectTicket={onSelectTicket}
+      />
+      <TicketThread ticket={selectedTicket} />
+      <form className="reply-form" onSubmit={submitReply}>
+        <textarea
+          value={replyText}
+          onChange={(event) => setReplyText(event.target.value)}
+          placeholder={`${session.real_name} 답장 입력`}
+          rows={4}
+          disabled={!selectedTicket}
+        />
+        <button type="submit" disabled={!selectedTicket || !replyText.trim()}>
+          <Reply size={18} aria-hidden="true" />
+          <span>답장 보내기</span>
+        </button>
+      </form>
+    </section>
+  );
+}
+
+function TicketList({
+  tickets,
+  selectedTicketId,
+  emptyText,
+  onSelectTicket,
+}: {
+  tickets: SupportTicket[];
+  selectedTicketId: string;
+  emptyText: string;
+  onSelectTicket: (ticketId: string) => void;
+}) {
+  if (tickets.length === 0) {
+    return <p className="empty-text">{emptyText}</p>;
+  }
+  return (
+    <div className="mail-list">
+      {tickets.slice(0, 12).map((ticket) => (
+        <button
+          key={ticket.id}
+          type="button"
+          className={ticket.id === selectedTicketId ? "is-selected" : ""}
+          onClick={() => onSelectTicket(ticket.id)}
+        >
+          <span>{ticket.sender_name || "영업점"}</span>
+          <strong>{ticket.question}</strong>
+          <small>
+            {ticket.status} · {formatTime(ticket.updated_at || ticket.timestamp)}
+          </small>
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function TicketThread({ ticket, compact = false }: { ticket: SupportTicket | null; compact?: boolean }) {
+  if (!ticket) {
+    return (
+      <div className="ticket-thread">
+        <p>선택된 쪽지가 없습니다.</p>
+      </div>
+    );
+  }
+  return (
+    <div className={`ticket-thread${compact ? " is-compact" : ""}`}>
+      <div className="ticket-head">
+        <span>{ticket.priority}</span>
+        <strong>{ticket.question}</strong>
+        <small>
+          {ticket.sender_name || "영업점"} · {ticket.sender_employee_id || "-"}
+        </small>
+      </div>
+      <div className="mail-body">
+        <p>{ticket.summary}</p>
+        <small>
+          {routeLabel(ticket.answer_backend)} · {ticket.retrieval_backend || "-"} · 근거 {ticket.source_count}
+        </small>
+      </div>
+      <div className="reply-stack">
+        {(ticket.replies ?? []).map((reply) => (
+          <article key={reply.id} className={reply.author_role === "branch" ? "from-branch" : "from-it"}>
+            <strong>
+              {reply.author_name || roleLabel(reply.author_role)} · {roleLabel(reply.author_role)}
+            </strong>
+            <p>{reply.body}</p>
+            <small>{formatTime(reply.timestamp)}</small>
+          </article>
+        ))}
+      </div>
     </div>
   );
 }
@@ -494,39 +867,6 @@ function RoutePanel({ route }: { route: RouteSummary }) {
   );
 }
 
-function BranchGuide({
-  response,
-  ticketStatus,
-  onTicket,
-}: {
-  response: ChatResponse | null;
-  ticketStatus: string;
-  onTicket: () => Promise<void>;
-}) {
-  const checklist = response?.branch_guide.checklist ?? [];
-  return (
-    <section className="panel branch-guide-panel">
-      <div className="panel-title">
-        <Bot size={19} aria-hidden="true" />
-        <h2>가이드</h2>
-      </div>
-      {checklist.length === 0 ? (
-        <p>답변 후 확인 항목이 표시됩니다.</p>
-      ) : (
-        <ol>
-          {checklist.slice(0, 6).map((item) => (
-            <li key={item}>{item}</li>
-          ))}
-        </ol>
-      )}
-      <button type="button" onClick={onTicket} disabled={!response} title="IT 쪽지 보내기">
-        <MessageSquarePlus size={18} aria-hidden="true" />
-        <span>{ticketStatus || "IT 쪽지 보내기"}</span>
-      </button>
-    </section>
-  );
-}
-
 function ITSearchPanel({
   response,
   searchResults,
@@ -545,7 +885,7 @@ function ITSearchPanel({
     <section className="panel it-tools">
       <div className="panel-title">
         <Code2 size={19} aria-hidden="true" />
-        <h2>쿼리 생성</h2>
+        <h2>근거 검색</h2>
       </div>
       <div className="query-box">
         <span>{generatedQuery || "답변 후 검색어가 생성됩니다."}</span>
@@ -608,37 +948,6 @@ function LogPanel({ logs, onRefresh }: { logs: RuntimeLog[]; onRefresh: () => Pr
   );
 }
 
-function TicketList({ tickets, onRefresh }: { tickets: SupportTicket[]; onRefresh: () => Promise<void> }) {
-  return (
-    <section className="panel ticket-list">
-      <div className="table-head">
-        <div className="panel-title">
-          <Users size={19} aria-hidden="true" />
-          <h2>IT 쪽지</h2>
-        </div>
-        <button type="button" onClick={() => void onRefresh()}>
-          새로고침
-        </button>
-      </div>
-      {tickets.length === 0 ? (
-        <p>접수된 쪽지가 없습니다.</p>
-      ) : (
-        <ul>
-          {tickets.slice(0, 8).map((ticket) => (
-            <li key={ticket.id}>
-              <strong>{ticket.question}</strong>
-              <span>
-                {ticket.priority} · {routeLabel(ticket.answer_backend)} · {ticket.retrieval_backend || "-"}
-              </span>
-              <p>{ticket.summary}</p>
-            </li>
-          ))}
-        </ul>
-      )}
-    </section>
-  );
-}
-
 function StatusPill({ online, label }: { online: boolean; label: string }) {
   return <span className={`status-pill ${online ? "is-online" : "is-offline"}`}>{label}</span>;
 }
@@ -660,9 +969,11 @@ function routeSummary(response: ChatResponse | null, health: HealthResponse | nu
       ? "MS Foundry gpt-5.4"
       : answerBackend === "safety"
         ? "보안 차단"
-        : answerBackend === "local"
-          ? "Local/Qwen"
-          : "대기";
+        : answerBackend === "scope_guard"
+          ? "업무 범위 확인"
+          : answerBackend === "local"
+            ? "Local/Qwen"
+            : "대기";
   return {
     answer,
     retrieval,
@@ -693,9 +1004,27 @@ function buildGeneratedQuery(response: ChatResponse | null) {
   return terms.join(" ");
 }
 
+function buildTicketSummary(response: ChatResponse) {
+  const causes = response.branch_guide.possible_causes?.join(", ");
+  const checklist = response.branch_guide.checklist?.slice(0, 5).join(" / ");
+  return [
+    causes ? `가능 원인: ${causes}` : "",
+    checklist ? `확인 항목: ${checklist}` : "",
+    `챗봇 답변 요약: ${response.answer.slice(0, 280)}`,
+  ]
+    .filter(Boolean)
+    .join("\n");
+}
+
+function workspaceTitle(role: UserRole) {
+  if (role === "admin") return "관리자 워크스페이스";
+  if (role === "it") return "IT 개발자 워크스페이스";
+  return "영업점 직원 워크스페이스";
+}
+
 function roleLabel(role: UserRole | string) {
   if (role === "admin") return "관리자";
-  if (role === "it") return "IT";
+  if (role === "it") return "IT 개발";
   return "영업점";
 }
 
@@ -703,6 +1032,7 @@ function routeLabel(answerBackend: string) {
   if (answerBackend === "foundry") return "MS Foundry";
   if (answerBackend === "local") return "Local";
   if (answerBackend === "safety") return "Safety";
+  if (answerBackend === "scope_guard") return "Scope";
   return answerBackend || "-";
 }
 

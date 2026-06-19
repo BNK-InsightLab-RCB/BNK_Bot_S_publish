@@ -259,11 +259,15 @@ the Azure Search evidence and the local role guardrail fallback.
 Important endpoints:
 
 - `GET /api/health`
+- `POST /api/auth/signup`
+- `POST /api/auth/login`
 - `POST /api/ingest/run`
 - `GET /api/ingest/status`
 - `POST /api/search`
 - `POST /api/chat`
 - `POST /api/storage/upload`
+- `POST /api/runtime/tickets`
+- `POST /api/runtime/tickets/{ticket_id}/replies`
 
 `GET /api/health` includes `rag_provider` so the demo operator can confirm whether the backend is using `local`, `foundry`, or `multi_agent`.
 

@@ -1,5 +1,16 @@
 export type UserRole = "branch" | "it" | "admin";
 
+export type RoleCode = "01" | "02" | "03";
+
+export interface AuthUser {
+  id: string;
+  real_name: string;
+  employee_id: string;
+  role: UserRole;
+  role_code: RoleCode;
+  role_label: string;
+}
+
 export interface SourceCitation {
   doc_id: string;
   title: string;
@@ -50,9 +61,14 @@ export interface RuntimeLog {
 export interface SupportTicket {
   id: string;
   timestamp: string;
+  updated_at?: string;
   status: string;
   priority: string;
   screen_name: string;
+  sender_name: string;
+  sender_employee_id: string;
+  sender_role: UserRole;
+  sender_role_code: RoleCode;
   question: string;
   summary: string;
   answer_backend: string;
@@ -60,6 +76,17 @@ export interface SupportTicket {
   retrieval_backend: string;
   confidence: number;
   source_count: number;
+  replies: TicketReply[];
+}
+
+export interface TicketReply {
+  id: string;
+  timestamp: string;
+  author_name: string;
+  author_employee_id: string;
+  author_role: UserRole;
+  author_role_code: RoleCode;
+  body: string;
 }
 
 export interface SearchResult {
@@ -82,6 +109,40 @@ export interface StorageUploadResponse {
   status: string;
   container: string;
   uploaded: StorageUploadItem[];
+}
+
+export async function signupUser(input: {
+  real_name: string;
+  employee_id: string;
+  password: string;
+  role_code: RoleCode;
+}): Promise<AuthUser> {
+  const response = await apiFetch("/api/auth/signup", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  });
+  if (!response.ok) {
+    throw new Error(await errorMessage(response, "회원가입에 실패했습니다."));
+  }
+  const body = (await response.json()) as { user: AuthUser };
+  return body.user;
+}
+
+export async function loginUser(input: {
+  employee_id: string;
+  password: string;
+}): Promise<AuthUser> {
+  const response = await apiFetch("/api/auth/login", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  });
+  if (!response.ok) {
+    throw new Error(await errorMessage(response, "로그인에 실패했습니다."));
+  }
+  const body = (await response.json()) as { user: AuthUser };
+  return body.user;
 }
 
 export async function askQuestion(question: string, userRole: UserRole): Promise<ChatResponse> {
@@ -163,6 +224,10 @@ export async function createSupportTicket(input: {
   summary: string;
   screen_name?: string;
   priority?: string;
+  sender_name?: string;
+  sender_employee_id?: string;
+  sender_role?: UserRole;
+  sender_role_code?: RoleCode;
   answer_backend?: string;
   rag_provider?: string;
   retrieval_backend?: string;
@@ -176,6 +241,28 @@ export async function createSupportTicket(input: {
   });
   if (!response.ok) {
     throw new Error(await errorMessage(response, "IT 쪽지 생성에 실패했습니다."));
+  }
+  const body = (await response.json()) as { ticket: SupportTicket };
+  return body.ticket;
+}
+
+export async function replySupportTicket(
+  ticketId: string,
+  input: {
+    body: string;
+    author_name?: string;
+    author_employee_id?: string;
+    author_role?: UserRole;
+    author_role_code?: RoleCode;
+  },
+): Promise<SupportTicket> {
+  const response = await apiFetch(`/api/runtime/tickets/${encodeURIComponent(ticketId)}/replies`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  });
+  if (!response.ok) {
+    throw new Error(await errorMessage(response, "쪽지 답장에 실패했습니다."));
   }
   const body = (await response.json()) as { ticket: SupportTicket };
   return body.ticket;
