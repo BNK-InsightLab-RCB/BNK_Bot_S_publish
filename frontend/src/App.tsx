@@ -15,7 +15,6 @@ import {
   MessageSquarePlus,
   Reply,
   Search,
-  Shield,
   UploadCloud,
   UserPlus,
   Users,
@@ -670,8 +669,8 @@ function AdminWorkspace({
             value={formatBytes(totals?.storage_uploaded_bytes ?? 0)}
           />
         </section>
+        <AdminProviderBoards dashboard={dashboard} />
         <div className="admin-main-grid">
-          <AdminRoutePanel dashboard={dashboard} />
           <AdminKpiPanel dashboard={dashboard} />
           <AdminPanel
             ingesting={ingesting}
@@ -713,64 +712,100 @@ function MetricTile({
   );
 }
 
-function AdminRoutePanel({ dashboard }: { dashboard: AdminDashboard | null }) {
+function AdminProviderBoards({ dashboard }: { dashboard: AdminDashboard | null }) {
   const azure = dashboard?.azure;
   const local = dashboard?.local;
+  const totals = dashboard?.totals;
+  const routeCounts = dashboard?.route_counts ?? [];
+  const retrievalCounts = dashboard?.retrieval_counts ?? [];
   return (
-    <section className="panel admin-route-panel">
-      <div className="panel-title">
-        <Shield size={19} aria-hidden="true" />
-        <h2>로컬 / MS Azure 경로</h2>
-      </div>
-      <div className="route-lanes">
-        <article>
-          <header>
-            <Database size={18} aria-hidden="true" />
-            <strong>Local Qwen</strong>
-          </header>
-          <dl>
+    <section className="provider-board-grid" aria-label="응답 경로 대시보드">
+      <article className="panel provider-card is-azure">
+        <header>
+          <div>
+            <span className="provider-icon">
+              <Cloud size={22} aria-hidden="true" />
+            </span>
             <div>
-              <dt>모델</dt>
-              <dd>{local?.llm_model ?? "Qwen/Qwen3-14B-MLX-4bit"}</dd>
+              <span className="eyebrow">Microsoft Cloud Route</span>
+              <h2>MS Azure / Foundry</h2>
             </div>
+          </div>
+          <strong>{totals?.cloud_answer_count ?? 0}</strong>
+        </header>
+        <p>Foundry 답변 생성, Azure AI Search 검색, Blob Storage 업로드 상태를 함께 봅니다.</p>
+        <dl>
+          <div>
+            <dt>Foundry 모델</dt>
+            <dd>{azure?.foundry_configured ? azure.foundry_model : "미설정"}</dd>
+          </div>
+          <div>
+            <dt>AI Search</dt>
+            <dd>{azure?.azure_search_configured ? azure.search_index : "미설정"}</dd>
+          </div>
+          <div>
+            <dt>Storage</dt>
+            <dd>{azure?.storage_configured ? azure.storage_container : "미설정"}</dd>
+          </div>
+          <div>
+            <dt>클라우드 경로</dt>
+            <dd>{azure?.route ?? "-"}</dd>
+          </div>
+        </dl>
+        <div className="provider-chip-row">
+          {routeCounts
+            .filter((item) => item.label === "foundry")
+            .map((item) => (
+              <span key={item.label}>{routeLabel(item.label)} {item.count}</span>
+            ))}
+          {retrievalCounts
+            .filter((item) => item.label.includes("azure") || item.label === "foundry")
+            .map((item) => (
+              <span key={item.label}>{item.label} {item.count}</span>
+            ))}
+        </div>
+      </article>
+      <article className="panel provider-card is-local">
+        <header>
+          <div>
+            <span className="provider-icon">
+              <Database size={22} aria-hidden="true" />
+            </span>
             <div>
-              <dt>지식문서</dt>
-              <dd>{local?.local_index_count ?? 0} docs</dd>
+              <span className="eyebrow">Local Runtime Route</span>
+              <h2>Local Qwen</h2>
             </div>
-            <div>
-              <dt>업로드 폴더</dt>
-              <dd>{local?.upload_dir ?? "-"}</dd>
-            </div>
-          </dl>
-        </article>
-        <article>
-          <header>
-            <Cloud size={18} aria-hidden="true" />
-            <strong>Microsoft Azure</strong>
-          </header>
-          <dl>
-            <div>
-              <dt>Foundry</dt>
-              <dd>{azure?.foundry_configured ? azure.foundry_model : "미설정"}</dd>
-            </div>
-            <div>
-              <dt>AI Search</dt>
-              <dd>{azure?.azure_search_configured ? azure.search_index : "미설정"}</dd>
-            </div>
-            <div>
-              <dt>Storage</dt>
-              <dd>{azure?.storage_configured ? azure.storage_container : "미설정"}</dd>
-            </div>
-          </dl>
-        </article>
-      </div>
-      <div className="route-counts">
-        {(dashboard?.route_counts ?? []).map((item) => (
-          <span key={item.label}>
-            {routeLabel(item.label)} {item.count}
-          </span>
-        ))}
-      </div>
+          </div>
+          <strong>{totals?.local_answer_count ?? 0}</strong>
+        </header>
+        <p>로컬 Qwen, 로컬 JSON/Elasticsearch 지식문서, 업로드된 테스트 문서 경로를 봅니다.</p>
+        <dl>
+          <div>
+            <dt>모델</dt>
+            <dd>{local?.llm_model ?? "Qwen/Qwen3-14B-MLX-4bit"}</dd>
+          </div>
+          <div>
+            <dt>지식문서</dt>
+            <dd>{local?.local_index_count ?? 0} docs</dd>
+          </div>
+          <div>
+            <dt>로컬 인덱스</dt>
+            <dd>{local?.local_index_path ?? "-"}</dd>
+          </div>
+          <div>
+            <dt>업로드 폴더</dt>
+            <dd>{local?.upload_dir ?? "-"}</dd>
+          </div>
+        </dl>
+        <div className="provider-chip-row">
+          {retrievalCounts
+            .filter((item) => item.label.includes("local"))
+            .map((item) => (
+              <span key={item.label}>{item.label} {item.count}</span>
+            ))}
+          <span>Qwen chat {local?.llm_chat_enabled ? "on" : "fallback"}</span>
+        </div>
+      </article>
     </section>
   );
 }

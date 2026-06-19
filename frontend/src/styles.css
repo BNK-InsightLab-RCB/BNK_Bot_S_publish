@@ -686,25 +686,25 @@ button:disabled {
 .admin-kpi-strip {
   display: grid;
   grid-template-columns: repeat(6, minmax(0, 1fr));
-  gap: 8px;
+  gap: 7px;
 }
 
 .metric-tile {
   min-width: 0;
-  min-height: 86px;
+  min-height: 54px;
   display: grid;
-  grid-template-columns: 36px minmax(0, 1fr);
+  grid-template-columns: 28px minmax(0, 1fr);
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   border: 1px solid var(--stroke);
   border-radius: 8px;
-  padding: 13px;
+  padding: 8px 10px;
   background: var(--surface);
 }
 
 .metric-tile > span {
-  width: 34px;
-  height: 34px;
+  width: 26px;
+  height: 26px;
   display: grid;
   place-items: center;
   border: 1px solid var(--stroke-soft);
@@ -716,19 +716,21 @@ button:disabled {
 .metric-tile small {
   display: block;
   color: var(--text-muted);
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 760;
+  line-height: 1.15;
 }
 
 .metric-tile strong {
   display: block;
-  margin-top: 3px;
+  margin-top: 1px;
   color: var(--text);
-  font-size: 22px;
+  font-size: 17px;
   line-height: 1.1;
   overflow-wrap: anywhere;
 }
 
+.provider-board-grid,
 .admin-main-grid,
 .admin-observe-grid {
   display: grid;
@@ -736,8 +738,12 @@ button:disabled {
   align-items: start;
 }
 
+.provider-board-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
 .admin-main-grid {
-  grid-template-columns: minmax(360px, 1fr) minmax(360px, 1fr) minmax(360px, 1fr);
+  grid-template-columns: minmax(420px, 0.92fr) minmax(520px, 1.08fr);
 }
 
 .admin-observe-grid {
@@ -799,7 +805,6 @@ button:disabled {
 }
 
 .upload-event-list,
-.route-lanes,
 .kpi-list,
 .model-event-list {
   display: grid;
@@ -807,7 +812,6 @@ button:disabled {
 }
 
 .upload-event-list article,
-.route-lanes article,
 .kpi-list article,
 .model-event-list article {
   min-width: 0;
@@ -842,63 +846,108 @@ button:disabled {
   font-size: 12px;
 }
 
-.admin-route-panel,
 .admin-kpi-panel,
 .model-events-panel {
   display: grid;
   gap: 12px;
 }
 
-.route-lanes {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+.provider-card {
+  min-height: 248px;
+  display: grid;
+  grid-template-rows: auto auto minmax(0, 1fr) auto;
+  gap: 13px;
+  overflow: hidden;
 }
 
-.route-lanes header {
+.provider-card header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.provider-card header > div {
+  min-width: 0;
   display: flex;
   align-items: center;
-  gap: 7px;
-  margin-bottom: 10px;
-  color: var(--text);
+  gap: 11px;
 }
 
-.route-lanes dl {
+.provider-icon {
+  width: 42px;
+  height: 42px;
   display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  border: 1px solid rgba(0, 102, 204, 0.2);
+  border-radius: 8px;
+  color: var(--blue);
+  background: var(--blue-soft);
+}
+
+.provider-card h2 {
+  margin: 3px 0 0;
+  font-size: 24px;
+  line-height: 1.15;
+}
+
+.provider-card header > strong {
+  color: var(--text);
+  font-size: 40px;
+  line-height: 1;
+}
+
+.provider-card p {
+  margin: 0;
+  color: var(--text-muted);
+  line-height: 1.45;
+}
+
+.provider-card dl {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 8px;
   margin: 0;
 }
 
-.route-lanes div {
-  display: grid;
-  grid-template-columns: 84px minmax(0, 1fr);
-  gap: 8px;
+.provider-card dl div {
+  min-width: 0;
+  border: 1px solid var(--stroke-soft);
+  border-radius: 8px;
+  padding: 9px 10px;
+  background: rgba(255, 255, 255, 0.68);
 }
 
-.route-lanes dt,
-.route-lanes dd {
+.provider-card dt,
+.provider-card dd {
   margin: 0;
   min-width: 0;
-  font-size: 12px;
-  line-height: 1.35;
 }
 
-.route-lanes dt {
+.provider-card dt {
   color: var(--text-soft);
+  font-size: 11px;
   font-weight: 760;
+  line-height: 1.2;
 }
 
-.route-lanes dd {
+.provider-card dd {
+  margin-top: 4px;
   color: var(--text);
+  font-size: 13px;
+  line-height: 1.35;
   overflow-wrap: anywhere;
 }
 
-.route-counts,
+.provider-chip-row,
 .source-chip-row {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
 }
 
-.route-counts span,
+.provider-chip-row span,
 .source-chip-row span {
   border: 1px solid var(--stroke-soft);
   border-radius: 6px;
@@ -1771,9 +1820,9 @@ button:disabled {
   }
 
   .admin-kpi-strip,
+  .provider-board-grid,
   .admin-main-grid,
-  .admin-observe-grid,
-  .route-lanes {
+  .admin-observe-grid {
     grid-template-columns: 1fr;
   }
 
