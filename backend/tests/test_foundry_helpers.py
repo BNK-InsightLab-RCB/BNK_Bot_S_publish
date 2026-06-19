@@ -1,13 +1,19 @@
 import json
+from types import SimpleNamespace
 
 import httpx
 
+from backend.app.agents import supervisor as supervisor_module
+from backend.app.agents.supervisor import SupervisorAgent
 from backend.app.foundry.agent_client import (
     FoundryCitation,
+    FoundryResponse,
+    FoundryAgentClient,
     _extract_citations,
     _extract_text,
     _requires_semantic_retry,
 )
+from backend.app.foundry import agent_client as foundry_module
 from backend.app.storage.azure_search import _hit_from_payload, _search_body, dumps_schema_preview
 
 
@@ -65,6 +71,77 @@ def test_foundry_semantic_retry_detects_integrated_vectorizer_error():
     )
 
     assert _requires_semantic_retry(response)
+
+
+def test_foundry_payload_uses_agent_reference_version(monkeypatch):
+    monkeypatch.setattr(
+        foundry_module,
+        "settings",
+        SimpleNamespace(
+            foundry_agent_name="test-agent",
+            foundry_agent_version="3",
+            foundry_force_search_tool=True,
+            foundry_ai_search_connection_id="",
+            foundry_ai_search_query_type="semantic",
+            foundry_top_k=5,
+            foundry_timeout_seconds=90,
+            azure_search_index="ops-knowledge",
+        ),
+    )
+    client = FoundryAgentClient(
+        project_endpoint="https://example.services.ai.azure.com/api/projects/proj-default",
+        model_deployment="gpt-5.4",
+        api_key="test-key",
+    )
+
+    payload = client._payload(
+        "자동이체 오류 원인 알려줘",
+        user_role="branch",
+        context_hint="server-side context should not be passed",
+        agent_first=True,
+    )
+
+    assert payload["agent_reference"] == {
+        "name": "test-agent",
+        "type": "agent_reference",
+        "version": "3",
+    }
+    assert payload["tool_choice"] == "required"
+    assert "로컬 분석 힌트" not in str(payload["input"])
+    assert "Azure AI Search 도구를 먼저 사용" in str(payload["input"])
+
+
+def test_supervisor_uses_foundry_agent_first(monkeypatch):
+    monkeypatch.setattr(
+        supervisor_module,
+        "settings",
+        SimpleNamespace(
+            rag_provider="multi_agent",
+            foundry_agent_name="test-agent",
+            foundry_ai_search_connection_id="",
+            azure_search_endpoint="https://search.example",
+            enable_llm_chat=False,
+        ),
+    )
+
+    class FakeFoundryClient:
+        def answer(self, question, user_role, context_hint="", agent_first=False):
+            assert agent_first is True
+            assert context_hint == ""
+            return FoundryResponse(
+                answer="[가능한 원인]\nAgent 검색 근거 기반 답변입니다.",
+                citations=[FoundryCitation(title="업무지침", url="https://example.com/doc")],
+            )
+
+    response = SupervisorAgent(foundry_client=FakeFoundryClient()).handle(
+        "자동이체 오류 원인 알려줘",
+        user_role="it",
+    )
+
+    assert response["metadata"]["answer_backend"] == "foundry"
+    assert response["metadata"]["workflow"] == "foundry_agent_search_tool"
+    assert response["sources"][0]["retrieval_backend"] == "foundry"
+    assert any("agent-first route selected" in step for step in response["metadata"]["agent_trace"])
 
 
 def test_azure_search_schema_has_required_foundry_fields():

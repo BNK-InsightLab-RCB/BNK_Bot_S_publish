@@ -97,11 +97,17 @@ class Settings:
     foundry_model_deployment: str = "gpt-4.1-mini"
     foundry_api_key: str = ""
     foundry_agent_name: str = ""
+    foundry_agent_version: str = ""
     foundry_ai_search_connection_id: str = ""
     foundry_ai_search_query_type: str = "semantic"
     foundry_top_k: int = 5
     foundry_timeout_seconds: int = 90
     foundry_force_search_tool: bool = True
+    azure_monitor_resource_id: str = ""
+    azure_monitor_metric_names: str = "TokenTransaction,ProcessedPromptTokens,GeneratedTokens,Requests,Latency"
+    azure_monitor_api_version: str = "2023-10-01"
+    azure_monitor_timespan_minutes: int = 60
+    azure_monitor_token_limit: int = 1000000
     source_sync_admin_token: str = ""
 
 
@@ -197,6 +203,7 @@ def load_settings() -> Settings:
         foundry_model_deployment=_get("FOUNDRY_MODEL_DEPLOYMENT", "gpt-4.1-mini", dotenv_values),
         foundry_api_key=_get("FOUNDRY_API_KEY", "", dotenv_values),
         foundry_agent_name=_get("FOUNDRY_AGENT_NAME", "", dotenv_values),
+        foundry_agent_version=_get("FOUNDRY_AGENT_VERSION", "", dotenv_values),
         foundry_ai_search_connection_id=_get(
             "FOUNDRY_AI_SEARCH_CONNECTION_ID", "", dotenv_values
         ),
@@ -206,6 +213,17 @@ def load_settings() -> Settings:
         foundry_top_k=int(_get("FOUNDRY_TOP_K", "5", dotenv_values)),
         foundry_timeout_seconds=int(_get("FOUNDRY_TIMEOUT_SECONDS", "90", dotenv_values)),
         foundry_force_search_tool=_bool(_get("FOUNDRY_FORCE_SEARCH_TOOL", "true", dotenv_values)),
+        azure_monitor_resource_id=_get("AZURE_MONITOR_RESOURCE_ID", "", dotenv_values),
+        azure_monitor_metric_names=_get(
+            "AZURE_MONITOR_METRIC_NAMES",
+            "TokenTransaction,ProcessedPromptTokens,GeneratedTokens,Requests,Latency",
+            dotenv_values,
+        ),
+        azure_monitor_api_version=_get("AZURE_MONITOR_API_VERSION", "2023-10-01", dotenv_values),
+        azure_monitor_timespan_minutes=int(
+            _get("AZURE_MONITOR_TIMESPAN_MINUTES", "60", dotenv_values)
+        ),
+        azure_monitor_token_limit=int(_get("AZURE_MONITOR_TOKEN_LIMIT", "1000000", dotenv_values)),
         source_sync_admin_token=_get("SOURCE_SYNC_ADMIN_TOKEN", "", dotenv_values),
     )
 

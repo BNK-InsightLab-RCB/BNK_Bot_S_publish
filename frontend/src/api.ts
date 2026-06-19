@@ -176,6 +176,21 @@ export interface AdminStorageEvent {
   status: string;
 }
 
+export interface AzureMonitorSummary {
+  status: "connected" | "not_configured" | "unavailable" | string;
+  configured: boolean;
+  resource: string;
+  request_count: number;
+  tokens_used: number;
+  token_limit: number;
+  latency_ms: number;
+  error_count: number;
+  throttled_count: number;
+  model_load_percent: number;
+  metric_names: string[];
+  message: string;
+}
+
 export interface AdminDashboard {
   generated_at: string;
   window_log_count: number;
@@ -206,6 +221,7 @@ export interface AdminDashboard {
     search_index: string;
     storage_container: string;
     foundry_model: string;
+    monitor?: AzureMonitorSummary;
   };
   local: {
     index_name: string;

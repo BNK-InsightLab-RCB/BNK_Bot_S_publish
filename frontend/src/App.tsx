@@ -720,15 +720,19 @@ function AdminProviderBoards({ dashboard }: { dashboard: AdminDashboard | null }
   const totals = dashboard?.totals;
   const routeCounts = dashboard?.route_counts ?? [];
   const retrievalCounts = dashboard?.retrieval_counts ?? [];
+  const monitor = azure?.monitor;
+  const monitorConnected = monitor?.status === "connected";
+  const monitorConfigured = Boolean(monitor?.configured);
   const azureOps = {
     model: azure?.foundry_model || "gpt-5.4",
-    usedTokens: 128_420,
-    tokenLimit: 1_000_000,
-    requestCount: totals?.cloud_answer_count ?? 14,
-    latencyP95: 820,
-    modelLoad: 34,
+    usedTokens: monitorConnected ? monitor?.tokens_used ?? 0 : 128_420,
+    tokenLimit: monitor?.token_limit || 1_000_000,
+    requestCount: monitorConnected ? monitor?.request_count ?? 0 : totals?.cloud_answer_count ?? 14,
+    latencyP95: monitorConnected ? Math.round(monitor?.latency_ms ?? 0) : 820,
+    modelLoad: monitorConnected ? monitor?.model_load_percent ?? 0 : 34,
     searchLoad: 46,
-    queueDepth: 2,
+    queueDepth: monitorConnected ? monitor?.throttled_count ?? 0 : 2,
+    errorCount: monitorConnected ? monitor?.error_count ?? 0 : 0,
   };
   const localOps = {
     cpuLoad: 37,
@@ -799,7 +803,7 @@ function AdminProviderBoards({ dashboard }: { dashboard: AdminDashboard | null }
             <article>
               <span>현재 부하</span>
               <strong>{azureLoadPercent}%</strong>
-              <small>model {azureOps.modelLoad}% · search {azureOps.searchLoad}% · queue {azureOps.queueDepth}</small>
+              <small>model {azureOps.modelLoad}% · search {azureOps.searchLoad}% · throttle {azureOps.queueDepth}</small>
               <div className="usage-meter is-load" aria-hidden="true">
                 <span style={{ width: `${azureLoadPercent}%` }} />
               </div>
@@ -810,16 +814,25 @@ function AdminProviderBoards({ dashboard }: { dashboard: AdminDashboard | null }
               <div>
                 <span className="eyebrow">Observability Agent</span>
                 <strong>대화로 원인 · 참조 · 부하 확인</strong>
-                <small>{azureOps.requestCount} demo calls · P95 {azureOps.latencyP95}ms</small>
+                <small>
+                  {azureOps.requestCount} {monitorConnected ? "Azure Monitor calls" : "demo calls"} · P95 {azureOps.latencyP95}ms
+                </small>
               </div>
-              <button type="button" disabled title="데모 UI입니다. 실제 Azure API 호출은 연결하지 않았습니다.">
-                Demo
+              <button
+                type="button"
+                disabled
+                title={monitorConfigured ? monitor?.message : "AZURE_MONITOR_RESOURCE_ID 설정 후 실제 지표를 표시합니다."}
+              >
+                {monitorConnected ? "Live" : monitorConfigured ? "대기" : "Demo"}
               </button>
             </header>
             <div className="agent-chat-window">
               <p className="is-system"><span>agent</span> Foundry 모델, AI Search, 토큰, 지연시간 로그를 함께 봅니다.</p>
               <p><span>admin</span> 자동이체 오류 답변의 참조와 현재 부하를 보여줘.</p>
-              <p><span>agent</span> AI Search 부하 {azureOps.searchLoad}%, 모델 부하 {azureOps.modelLoad}%, 참조 6건입니다.</p>
+              <p>
+                <span>agent</span> AI Search 부하 {azureOps.searchLoad}%, 모델 부하 {azureOps.modelLoad}%,
+                오류 {azureOps.errorCount}건, 참조 6건입니다.
+              </p>
             </div>
             <div className="agent-input-row" aria-disabled="true">
               <input type="text" disabled placeholder="Observability 에이전트에게 질문하기" />

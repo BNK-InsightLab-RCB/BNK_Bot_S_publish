@@ -5,6 +5,7 @@ from __future__ import annotations
 from fastapi import APIRouter
 
 from backend.app.config import settings
+from backend.app.monitoring.azure_monitor import AzureMonitorMetricsClient
 from backend.app.runtime_store import RuntimeStore
 from backend.app.schemas import HealthResponse
 from backend.app.storage.elastic import KnowledgeIndex
@@ -45,6 +46,7 @@ def admin_dashboard() -> dict:
     foundry_tool_ready = bool(settings.foundry_ai_search_connection_id or settings.foundry_agent_name)
     dashboard = RuntimeStore().admin_dashboard()
     docs = KnowledgeIndex().load_documents()
+    azure_monitor = AzureMonitorMetricsClient().dashboard_summary()
     return {
         **dashboard,
         "azure": {
@@ -63,6 +65,7 @@ def admin_dashboard() -> dict:
             "search_index": settings.azure_search_index,
             "storage_container": settings.azure_storage_container,
             "foundry_model": settings.foundry_model_deployment,
+            "monitor": azure_monitor,
         },
         "local": {
             "index_name": settings.elastic_index,

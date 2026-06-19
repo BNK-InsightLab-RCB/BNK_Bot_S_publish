@@ -126,7 +126,17 @@ AZURE_SEARCH_INDEX=ops-knowledge
 AZURE_SEARCH_API_KEY=<optional-admin-key-if-not-using-az-login>
 FOUNDRY_PROJECT_ENDPOINT=https://<foundry-resource>.ai.azure.com/api/projects/<project-name>
 FOUNDRY_MODEL_DEPLOYMENT=gpt-5.4
+# Preferred route: call a published Foundry Agent that has the Azure AI Search
+# tool connected to AZURE_SEARCH_INDEX.
+FOUNDRY_AGENT_NAME=test-agent
+FOUNDRY_AGENT_VERSION=3
+# Fallback route: let this backend attach the Search tool directly.
 FOUNDRY_AI_SEARCH_CONNECTION_ID=/subscriptions/<sub>/resourceGroups/<rg>/providers/Microsoft.CognitiveServices/accounts/<foundry-account>/projects/<project>/connections/<search-connection>
+
+# Optional: surface Foundry/OpenAI metrics in the admin dashboard via Azure Monitor.
+AZURE_MONITOR_RESOURCE_ID=/subscriptions/<sub>/resourceGroups/<rg>/providers/Microsoft.CognitiveServices/accounts/<foundry-account>
+AZURE_MONITOR_METRIC_NAMES=TokenTransaction,ProcessedPromptTokens,GeneratedTokens,Requests,Latency
+AZURE_MONITOR_TOKEN_LIMIT=1000000
 ```
 
 If `AZURE_OPENAI_API_KEY`, `AZURE_SEARCH_API_KEY`, and `FOUNDRY_API_KEY` are empty,
@@ -277,10 +287,16 @@ To run with the Supervisor multi-agent route and Microsoft Foundry:
 RAG_PROVIDER=multi_agent uvicorn backend.app.main:app --reload --port 9000
 ```
 
-`multi_agent` mode first retrieves source-aware documents from Azure AI Search when
-`AZURE_SEARCH_ENDPOINT` is configured. If Foundry API credentials are not available
-or the hackathon Foundry resource has been reset, the backend still answers with
-the Azure Search evidence and the local role guardrail fallback.
+`multi_agent` mode uses a Foundry Agent first when `FOUNDRY_AGENT_NAME` or
+`FOUNDRY_AI_SEARCH_CONNECTION_ID` is configured. In that route, the backend sends
+the user's question to Foundry, and the Foundry Agent/Search tool performs
+retrieval against `AZURE_SEARCH_INDEX`. If Foundry is unavailable, the backend
+falls back to direct Azure AI Search retrieval and then local role guardrails.
+
+The admin dashboard can show real Microsoft-side model metrics when
+`AZURE_MONITOR_RESOURCE_ID` is set and the signed-in Azure CLI identity can read
+Azure Monitor metrics for that resource. Without it, the UI keeps demo values so
+the local PoC remains runnable.
 
 Important endpoints:
 

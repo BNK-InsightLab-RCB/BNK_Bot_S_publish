@@ -85,6 +85,39 @@ class SupervisorAgent:
                 "blocked_by_scope": True,
             }
             return response
+        if provider in {"foundry", "multi_agent"} and _foundry_tool_configured():
+            trace.add("foundry_agent_worker: agent-first route selected")
+            foundry_response = self._ask_foundry(
+                question,
+                user_role,
+                docs=[],
+                trace=trace,
+                agent_first=True,
+            )
+            if foundry_response:
+                response = self.answer_generator.generate_from_external_answer(
+                    answer=foundry_response.answer,
+                    docs=[],
+                    user_role=user_role,
+                    confidence=0.82 if foundry_response.citations else 0.66,
+                )
+                response["sources"] = _merge_sources(
+                    foundry_sources=[
+                        citation.to_source(index, user_role)
+                        for index, citation in enumerate(foundry_response.citations)
+                    ],
+                    local_sources=[],
+                )
+                response["metadata"] = {
+                    "rag_provider": provider,
+                    "answer_backend": "foundry",
+                    "workflow": "foundry_agent_search_tool",
+                    "local_ranked_count": 0,
+                    "expanded_doc_count": 0,
+                    "agent_trace": trace.steps,
+                }
+                return response
+            trace.add("foundry_agent_worker: unavailable; falling back to server retrieval")
         if provider in {"foundry", "multi_agent"} and settings.azure_search_endpoint:
             docs, ranked_count = self._retrieve_azure(question, trace)
             if not docs:
@@ -179,15 +212,22 @@ class SupervisorAgent:
         user_role: str,
         docs: List[KnowledgeDocument],
         trace: AgentTrace,
+        agent_first: bool = False,
     ):
-        context_hint = ContextBuilder(max_chars=4000).build(docs[:6], user_role=user_role)
-        if not (settings.foundry_ai_search_connection_id or settings.foundry_agent_name):
+        context_hint = "" if agent_first else ContextBuilder(max_chars=4000).build(
+            docs[:6],
+            user_role=user_role,
+        )
+        if agent_first:
+            trace.add("foundry_worker: delegating retrieval to Foundry Agent/Search tool")
+        elif not _foundry_tool_configured():
             trace.add("foundry_worker: Search tool connection not configured; using Azure Search context hint")
         trace.add("foundry_worker: calling Microsoft Foundry")
         foundry_response = self.foundry_client.answer(
             question=question,
             user_role=user_role,
             context_hint=context_hint,
+            agent_first=agent_first,
         )
         if foundry_response and foundry_response.answer:
             trace.add(
@@ -212,6 +252,10 @@ def _merge_sources(
         seen.add(key)
         merged.append(source)
     return merged[:12]
+
+
+def _foundry_tool_configured() -> bool:
+    return bool(settings.foundry_agent_name or settings.foundry_ai_search_connection_id)
 
 
 def _select_azure_hits(question: str, hits) -> List[object]:
